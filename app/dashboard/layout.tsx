@@ -52,8 +52,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div style={{width: '100%', maxWidth: '100vw', overflow: 'hidden'}}>
-      {/* MOBILE ONLY */}
+    <div style={{width: '100vw', maxWidth: '100vw', overflow: 'hidden', margin: 0, padding: 0}}>
+      {/* MOBILE */}
       <div className="lg:hidden">
         {/* Header */}
         <div style={{
@@ -61,17 +61,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           top: 0,
           left: 0,
           right: 0,
+          width: '100vw',
+          maxWidth: '100vw',
           background: 'white',
           borderBottom: '1px solid #e5e7eb',
           zIndex: 50,
-          padding: '12px 20px'
+          padding: '12px 16px',
+          boxSizing: 'border-box'
         }}>
           <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-            <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-              <div style={{width: '32px', height: '32px', background: '#2563eb', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '18px'}}>L</div>
-              <span style={{fontWeight: 'bold', fontSize: '16px'}}>{businessName || 'Lynqly'}</span>
+            <div style={{display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1}}>
+              <div style={{width: '32px', height: '32px', background: '#2563eb', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '18px', flexShrink: 0}}>L</div>
+              <span style={{fontWeight: 'bold', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{businessName || 'Lynqly'}</span>
             </div>
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{padding: '8px'}}>
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{padding: '8px', flexShrink: 0}}>
               {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
@@ -81,7 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {sidebarOpen && (
           <>
             <div onClick={() => setSidebarOpen(false)} style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40}} />
-            <div style={{position: 'fixed', top: 0, left: 0, bottom: 0, width: '256px', background: 'white', zIndex: 50, padding: '24px 16px'}}>
+            <div style={{position: 'fixed', top: 0, left: 0, bottom: 0, width: '256px', background: 'white', zIndex: 50, padding: '24px 16px', overflowY: 'auto'}}>
               <div style={{marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid #e5e7eb'}}>
                 <div style={{fontWeight: 'bold', fontSize: '18px'}}>Lynqly</div>
                 <div style={{fontSize: '12px', color: '#6b7280'}}>{businessName}</div>
@@ -116,14 +119,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         {/* Content Mobile */}
-        <div style={{paddingTop: '70px', paddingLeft: '20px', paddingRight: '20px', paddingBottom: '20px', width: '100%', maxWidth: '100%', boxSizing: 'border-box'}}>
-          {children}
+        <div style={{
+          paddingTop: '70px', 
+          paddingLeft: '16px', 
+          paddingRight: '16px', 
+          paddingBottom: '20px', 
+          width: '100vw', 
+          maxWidth: '100vw', 
+          boxSizing: 'border-box',
+          overflowX: 'hidden'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '100%',
+            overflowX: 'hidden'
+          }}>
+            {children}
+          </div>
         </div>
       </div>
 
-      {/* DESKTOP ONLY */}
+      {/* DESKTOP */}
       <div className="hidden lg:block">
-        <aside style={{position: 'fixed', top: 0, left: 0, bottom: 0, width: '256px', background: 'white', borderRight: '1px solid #e5e7eb', padding: '24px 16px'}}>
+        <aside style={{position: 'fixed', top: 0, left: 0, bottom: 0, width: '256px', background: 'white', borderRight: '1px solid #e5e7eb', padding: '24px 16px', overflowY: 'auto'}}>
           <div style={{marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid #e5e7eb'}}>
             <div style={{fontWeight: 'bold', fontSize: '20px'}}>Lynqly</div>
             <div style={{fontSize: '12px', color: '#6b7280'}}>{businessName}</div>
