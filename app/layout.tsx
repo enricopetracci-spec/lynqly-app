@@ -12,11 +12,6 @@ export const metadata: Metadata = {
     icon: '/favicon.ico',
   },
   themeColor: '#2563eb',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -31,6 +26,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="it">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+      </head>
       <body className={inter.className}>
         {children}
       </body>
