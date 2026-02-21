@@ -66,19 +66,19 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
-        <div className="flex items-center justify-between p-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50 px-3 sm:px-4">
+        <div className="flex items-center justify-between py-3">
           <Link href="/dashboard" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
               L
             </div>
-            <span className="font-bold text-gray-900">Lynqly</span>
+            <span className="font-bold text-gray-900 text-base sm:text-lg truncate">{businessName || 'Lynqly'}</span>
           </Link>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-100"
+            className="p-2 rounded-lg hover:bg-gray-100 flex-shrink-0"
           >
             {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -88,7 +88,6 @@ export default function DashboardLayout({
       {/* Sidebar Desktop */}
       <aside className="hidden lg:block fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
         <div className="flex flex-col h-full">
-          {/* Logo */}
           <div className="p-6 border-b border-gray-200">
             <Link href="/dashboard" className="flex items-center space-x-2">
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
@@ -101,7 +100,6 @@ export default function DashboardLayout({
             </Link>
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1">
             {navigation.map((item) => {
               const Icon = item.icon
@@ -123,7 +121,6 @@ export default function DashboardLayout({
             })}
           </nav>
 
-          {/* Footer */}
           <div className="p-4 border-t border-gray-200">
             <Button
               variant="ghost"
@@ -140,16 +137,13 @@ export default function DashboardLayout({
       {/* Mobile Sidebar */}
       {sidebarOpen && (
         <>
-          {/* Backdrop */}
           <div 
             className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setSidebarOpen(false)}
           />
           
-          {/* Sidebar */}
           <aside className="lg:hidden fixed inset-y-0 left-0 w-64 bg-white z-50 shadow-xl">
             <div className="flex flex-col h-full">
-              {/* Logo */}
               <div className="p-6 border-b border-gray-200">
                 <Link href="/dashboard" className="flex items-center space-x-2" onClick={() => setSidebarOpen(false)}>
                   <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
@@ -162,7 +156,6 @@ export default function DashboardLayout({
                 </Link>
               </div>
 
-              {/* Navigation */}
               <nav className="flex-1 p-4 space-y-1">
                 {navigation.map((item) => {
                   const Icon = item.icon
@@ -185,7 +178,6 @@ export default function DashboardLayout({
                 })}
               </nav>
 
-              {/* Footer */}
               <div className="p-4 border-t border-gray-200">
                 <Button
                   variant="ghost"
@@ -202,8 +194,8 @@ export default function DashboardLayout({
       )}
 
       {/* Main Content */}
-     <div className="lg:pl-64 pt-16 lg:pt-0">
-      <main className="p-3 sm:p-4 lg:p-8 max-w-full overflow-x-hidden">
+      <div className="lg:pl-64 pt-14 lg:pt-0 w-full max-w-full overflow-x-hidden">
+        <main className="p-3 sm:p-6 lg:p-8 w-full max-w-full">
           {children}
         </main>
       </div>
