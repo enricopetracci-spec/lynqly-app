@@ -7,11 +7,22 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Lynqly - Gestione Attività di Quartiere',
   description: 'Sistema di prenotazioni e gestione per attività locali',
+  manifest: '/manifest.json',
   icons: {
     icon: '/favicon.ico',
   },
+  themeColor: '#2563eb',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Lynqly',
+  },
 }
-
 export default function RootLayout({
   children,
 }: {
