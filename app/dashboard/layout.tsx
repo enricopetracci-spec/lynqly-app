@@ -66,15 +66,16 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+  <div style={{width: '100vw', maxWidth: '100vw', overflowX: 'hidden', position: 'relative'}}>
+    <div className="min-h-screen bg-gray-50" style={{width: '100%', maxWidth: '100vw', overflowX: 'hidden'}}>
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50 px-3 sm:px-4">
-        <div className="flex items-center justify-between py-3">
-          <Link href="/dashboard" className="flex items-center space-x-2">
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50" style={{width: '100%', maxWidth: '100vw'}}>
+        <div className="flex items-center justify-between p-3">
+          <Link href="/dashboard" className="flex items-center space-x-2 min-w-0">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
               L
             </div>
-            <span className="font-bold text-gray-900 text-base sm:text-lg truncate">{businessName || 'Lynqly'}</span>
+            <span className="font-bold text-gray-900 text-sm truncate">{businessName || 'Lynqly'}</span>
           </Link>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -85,6 +86,125 @@ export default function DashboardLayout({
         </div>
       </div>
 
+      {/* Sidebar Desktop */}
+      <aside className="hidden lg:block fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
+        <div className="flex flex-col h-full">
+          <div className="p-6 border-b border-gray-200">
+            <Link href="/dashboard" className="flex items-center space-x-2">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                L
+              </div>
+              <div>
+                <div className="font-bold text-gray-900">Lynqly</div>
+                <div className="text-xs text-gray-500 truncate">{businessName}</div>
+              </div>
+            </Link>
+          </div>
+
+          <nav className="flex-1 p-4 space-y-1">
+            {navigation.map((item) => {
+              const Icon = item.icon
+              const isActive = pathname === item.href
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="font-medium">{item.name}</span>
+                </Link>
+              )
+            })}
+          </nav>
+
+          <div className="p-4 border-t border-gray-200">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-700"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-5 h-5 mr-3" />
+              Esci
+            </Button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Mobile Sidebar */}
+      {sidebarOpen && (
+        <>
+          <div 
+            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setSidebarOpen(false)}
+          />
+          
+          <aside className="lg:hidden fixed inset-y-0 left-0 w-64 bg-white z-50 shadow-xl">
+            <div className="flex flex-col h-full">
+              <div className="p-6 border-b border-gray-200">
+                <Link href="/dashboard" className="flex items-center space-x-2" onClick={() => setSidebarOpen(false)}>
+                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                    L
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-900">Lynqly</div>
+                    <div className="text-xs text-gray-500 truncate">{businessName}</div>
+                  </div>
+                </Link>
+              </div>
+
+              <nav className="flex-1 p-4 space-y-1">
+                {navigation.map((item) => {
+                  const Icon = item.icon
+                  const isActive = pathname === item.href
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                        isActive
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="font-medium">{item.name}</span>
+                    </Link>
+                  )
+                })}
+              </nav>
+
+              <div className="p-4 border-t border-gray-200">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-gray-700"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="w-5 h-5 mr-3" />
+                  Esci
+                </Button>
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* Main Content */}
+      <div className="lg:pl-64 pt-14 lg:pt-0" style={{width: '100%', maxWidth: '100vw', overflowX: 'hidden'}}>
+        <main className="p-3 lg:p-8" style={{width: '100%', maxWidth: '100vw', overflowX: 'hidden'}}>
+          <div style={{width: '100%', maxWidth: '100%', overflowX: 'hidden'}}>
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+)
       {/* Sidebar Desktop */}
       <aside className="hidden lg:block fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
         <div className="flex flex-col h-full">
