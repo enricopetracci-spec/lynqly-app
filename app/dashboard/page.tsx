@@ -119,8 +119,8 @@ export default function DashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2">
-            <div className="flex-1 bg-white/20 rounded-lg px-4 py-3 text-white font-mono text-sm">
+         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="flex-1 bg-white/20 rounded-lg px-4 py-3 text-white font-mono text-xs sm:text-sm break-all">
               {bookingLink}
             </div>
             <Button 
