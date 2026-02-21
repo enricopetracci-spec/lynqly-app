@@ -210,4 +210,3 @@ export default function DashboardLayout({
     </div>
   )
 }
-"Fix: layout responsive con menu mobile"
