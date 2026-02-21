@@ -116,7 +116,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         {/* Content Mobile */}
-        <div style={{paddingTop: '60px', padding: '20px', width: '100%', maxWidth: '100%', boxSizing: 'border-box'}}>
+        <div style={{paddingTop: '70px', paddingLeft: '20px', paddingRight: '20px', paddingBottom: '20px', width: '100%', maxWidth: '100%', boxSizing: 'border-box'}}>
           {children}
         </div>
       </div>
