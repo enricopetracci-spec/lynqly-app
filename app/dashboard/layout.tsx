@@ -7,11 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Calendar, Users, Briefcase, UserCog, Settings, LogOut, BarChart3, Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [businessName, setBusinessName] = useState('')
@@ -24,22 +20,16 @@ export default function DashboardLayout({
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession()
-    
     if (!session) {
       router.push('/auth/login')
       return
     }
-
     const { data: business } = await supabase
       .from('businesses')
       .select('name')
       .eq('user_id', session.user.id)
       .single()
-
-    if (business) {
-      setBusinessName(business.name)
-    }
-
+    if (business) setBusinessName(business.name)
     setLoading(false)
   }
 
@@ -58,266 +48,106 @@ export default function DashboardLayout({
   ]
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600">Caricamento...</div>
-      </div>
-    )
+    return <div className="min-h-screen flex items-center justify-center"><div className="text-gray-600">Caricamento...</div></div>
   }
 
   return (
-  <div style={{width: '100vw', maxWidth: '100vw', overflowX: 'hidden', position: 'relative'}}>
-    <div className="min-h-screen bg-gray-50" style={{width: '100%', maxWidth: '100vw', overflowX: 'hidden'}}>
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50" style={{width: '100%', maxWidth: '100vw'}}>
-        <div className="flex items-center justify-between p-3">
-          <Link href="/dashboard" className="flex items-center space-x-2 min-w-0">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-              L
+    <div style={{width: '100%', maxWidth: '100vw', overflow: 'hidden'}}>
+      {/* MOBILE ONLY */}
+      <div className="lg:hidden">
+        {/* Header */}
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          background: 'white',
+          borderBottom: '1px solid #e5e7eb',
+          zIndex: 50,
+          padding: '12px 20px'
+        }}>
+          <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+              <div style={{width: '32px', height: '32px', background: '#2563eb', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '18px'}}>L</div>
+              <span style={{fontWeight: 'bold', fontSize: '16px'}}>{businessName || 'Lynqly'}</span>
             </div>
-            <span className="font-bold text-gray-900 text-sm truncate">{businessName || 'Lynqly'}</span>
-          </Link>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-100 flex-shrink-0"
-          >
-            {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Sidebar Desktop */}
-      <aside className="hidden lg:block fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
-        <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-gray-200">
-            <Link href="/dashboard" className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                L
-              </div>
-              <div>
-                <div className="font-bold text-gray-900">Lynqly</div>
-                <div className="text-xs text-gray-500 truncate">{businessName}</div>
-              </div>
-            </Link>
-          </div>
-
-          <nav className="flex-1 p-4 space-y-1">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.name}</span>
-                </Link>
-              )
-            })}
-          </nav>
-
-          <div className="p-4 border-t border-gray-200">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-gray-700"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-5 h-5 mr-3" />
-              Esci
-            </Button>
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{padding: '8px'}}>
+              {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
         </div>
-      </aside>
 
-      {/* Mobile Sidebar */}
-      {sidebarOpen && (
-        <>
-          <div 
-            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
-            onClick={() => setSidebarOpen(false)}
-          />
-          
-          <aside className="lg:hidden fixed inset-y-0 left-0 w-64 bg-white z-50 shadow-xl">
-            <div className="flex flex-col h-full">
-              <div className="p-6 border-b border-gray-200">
-                <Link href="/dashboard" className="flex items-center space-x-2" onClick={() => setSidebarOpen(false)}>
-                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                    L
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">Lynqly</div>
-                    <div className="text-xs text-gray-500 truncate">{businessName}</div>
-                  </div>
-                </Link>
+        {/* Sidebar Mobile */}
+        {sidebarOpen && (
+          <>
+            <div onClick={() => setSidebarOpen(false)} style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40}} />
+            <div style={{position: 'fixed', top: 0, left: 0, bottom: 0, width: '256px', background: 'white', zIndex: 50, padding: '24px 16px'}}>
+              <div style={{marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid #e5e7eb'}}>
+                <div style={{fontWeight: 'bold', fontSize: '18px'}}>Lynqly</div>
+                <div style={{fontSize: '12px', color: '#6b7280'}}>{businessName}</div>
               </div>
-
-              <nav className="flex-1 p-4 space-y-1">
-                {navigation.map((item) => {
-                  const Icon = item.icon
-                  const isActive = pathname === item.href
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                        isActive
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span className="font-medium">{item.name}</span>
-                    </Link>
-                  )
-                })}
-              </nav>
-
-              <div className="p-4 border-t border-gray-200">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-gray-700"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="w-5 h-5 mr-3" />
-                  Esci
-                </Button>
-              </div>
+              {navigation.map((item) => {
+                const Icon = item.icon
+                const isActive = pathname === item.href
+                return (
+                  <Link key={item.name} href={item.href} onClick={() => setSidebarOpen(false)}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      marginBottom: '4px',
+                      background: isActive ? '#eff6ff' : 'transparent',
+                      color: isActive ? '#2563eb' : '#374151'
+                    }}>
+                      <Icon size={20} />
+                      <span style={{fontWeight: 500}}>{item.name}</span>
+                    </div>
+                  </Link>
+                )
+              })}
+              <button onClick={handleLogout} style={{marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e5e7eb', width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px'}}>
+                <LogOut size={20} />
+                <span>Esci</span>
+              </button>
             </div>
-          </aside>
-        </>
-      )}
+          </>
+        )}
 
-      {/* Main Content */}
-      <div className="lg:pl-64 pt-14 lg:pt-0" style={{width: '100%', maxWidth: '100vw', overflowX: 'hidden'}}>
-        <main className="p-3 lg:p-8" style={{width: '100%', maxWidth: '100vw', overflowX: 'hidden'}}>
-          <div style={{width: '100%', maxWidth: '100%', overflowX: 'hidden'}}>
-            {children}
-          </div>
-        </main>
-      </div>
-    </div>
-  </div>
-)
-      {/* Sidebar Desktop */}
-      <aside className="hidden lg:block fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
-        <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-gray-200">
-            <Link href="/dashboard" className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                L
-              </div>
-              <div>
-                <div className="font-bold text-gray-900">Lynqly</div>
-                <div className="text-xs text-gray-500 truncate">{businessName}</div>
-              </div>
-            </Link>
-          </div>
-
-          <nav className="flex-1 p-4 space-y-1">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.name}</span>
-                </Link>
-              )
-            })}
-          </nav>
-
-          <div className="p-4 border-t border-gray-200">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-gray-700"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-5 h-5 mr-3" />
-              Esci
-            </Button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Mobile Sidebar */}
-      {sidebarOpen && (
-        <>
-          <div 
-            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
-            onClick={() => setSidebarOpen(false)}
-          />
-          
-          <aside className="lg:hidden fixed inset-y-0 left-0 w-64 bg-white z-50 shadow-xl">
-            <div className="flex flex-col h-full">
-              <div className="p-6 border-b border-gray-200">
-                <Link href="/dashboard" className="flex items-center space-x-2" onClick={() => setSidebarOpen(false)}>
-                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                    L
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900">Lynqly</div>
-                    <div className="text-xs text-gray-500 truncate">{businessName}</div>
-                  </div>
-                </Link>
-              </div>
-
-              <nav className="flex-1 p-4 space-y-1">
-                {navigation.map((item) => {
-                  const Icon = item.icon
-                  const isActive = pathname === item.href
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                        isActive
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span className="font-medium">{item.name}</span>
-                    </Link>
-                  )
-                })}
-              </nav>
-
-              <div className="p-4 border-t border-gray-200">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-gray-700"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="w-5 h-5 mr-3" />
-                  Esci
-                </Button>
-              </div>
-            </div>
-          </aside>
-        </>
-      )}
-
-      {/* Main Content */}
-      <div className="lg:pl-64 pt-14 lg:pt-0 w-full max-w-full overflow-x-hidden">
-        <main className="p-3 sm:p-6 lg:p-8 w-full max-w-full">
+        {/* Content Mobile */}
+        <div style={{paddingTop: '60px', padding: '20px', width: '100%', maxWidth: '100%', boxSizing: 'border-box'}}>
           {children}
-        </main>
+        </div>
+      </div>
+
+      {/* DESKTOP ONLY */}
+      <div className="hidden lg:block">
+        <aside style={{position: 'fixed', top: 0, left: 0, bottom: 0, width: '256px', background: 'white', borderRight: '1px solid #e5e7eb', padding: '24px 16px'}}>
+          <div style={{marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid #e5e7eb'}}>
+            <div style={{fontWeight: 'bold', fontSize: '20px'}}>Lynqly</div>
+            <div style={{fontSize: '12px', color: '#6b7280'}}>{businessName}</div>
+          </div>
+          {navigation.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
+            return (
+              <Link key={item.name} href={item.href}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '8px', marginBottom: '4px', background: isActive ? '#eff6ff' : 'transparent', color: isActive ? '#2563eb' : '#374151'}}>
+                  <Icon size={20} />
+                  <span style={{fontWeight: 500}}>{item.name}</span>
+                </div>
+              </Link>
+            )
+          })}
+          <button onClick={handleLogout} style={{marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e5e7eb', width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px'}}>
+            <LogOut size={20} />
+            <span>Esci</span>
+          </button>
+        </aside>
+        <div style={{marginLeft: '256px', padding: '32px'}}>
+          {children}
+        </div>
       </div>
     </div>
   )
