@@ -19,4 +19,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [])
 
   const checkAuth = async () => {
-    const { data:
+    const session = await supabase.auth.getSession()
+    
+    if (!session.data.session) {
+      router.push('/auth/login')
+      return
+    }
+
+    const business = await supabase
+      .from('businesses')
+      .select('name')
+      .eq('user_id', session.data.session.user.id)
+      .single()
+
+    if (business.data) {
+      setBusinessName(business.data.name)
+    }
+
+    setLoading(false)
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
+  const navigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+    { name: 'Prenotazioni', href: '/dashboard/bookings', icon: Calendar },
+    { name: 'Servizi', href: '/dashboard/services', icon: Briefcase },
+    {
