@@ -1,4 +1,4 @@
-'use client'
+ 'use client'
 
 import { useEffect } from 'react'
 
@@ -17,17 +17,3 @@ export default function ViewportFix() {
 
   return null
 }
-```
-
-5. Commit: "Add: viewport fix component"
-
----
-
-## 📍 **IMPORTANTE - POSIZIONE:**
-
-Il file DEVE essere qui:
-```
-lynqly-app/
-└── app/
-    ├── layout.tsx
-    └── viewport-fix.tsx  ← QUI!
