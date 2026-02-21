@@ -99,8 +99,8 @@ export default function DashboardPage() {
 
   const bookingLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/${businessSlug}`
 
-  return (
-    <div className="space-y-8">
+return (
+  <div className="space-y-6 sm:space-y-8 px-1 sm:px-0">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
@@ -108,7 +108,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Booking Link Card */}
-      <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+      <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white mx-0 sm:mx-0">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 text-white">
             <Share2 className="w-5 h-5" />
@@ -145,7 +145,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Oggi</CardTitle>
