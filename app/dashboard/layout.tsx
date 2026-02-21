@@ -175,7 +175,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           width: '100vw',
           maxWidth: '100vw',
           boxSizing: 'border-box',
-          overflowX: 'hidden'
+          overflowX: 'hidden',
+          touchAction: 'pan-y'
         }}>
           <div style={{
             width: '100%',
