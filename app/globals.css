@@ -41,3 +41,21 @@
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98
+/* FIX MOBILE PADDING FORZATO */
+@media (max-width: 1024px) {
+  main {
+    padding: 16px !important;
+    box-sizing: border-box !important;
+  }
+  
+  main > div {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  /* Header mobile con padding */
+  .lg\:hidden {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
