@@ -39,3 +39,38 @@ export function getBookingStatusLabel(status: string): string {
   }
   return labels[status] || status
 }
+
+export function formatPrice(price: number): string {
+  return `€${price.toFixed(2)}`
+}
+
+export function formatDuration(minutes: number): string {
+  if (minutes < 60) {
+    return `${minutes} min`
+  }
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  if (mins === 0) {
+    return `${hours}h`
+  }
+  return `${hours}h ${mins}min`
+}
+
+export function generateTimeSlots(startHour: number = 9, endHour: number = 19, intervalMinutes: number = 30): string[] {
+  const slots: string[] = []
+  
+  for (let hour = startHour; hour < endHour; hour++) {
+    for (let minute = 0; minute < 60; minute += intervalMinutes) {
+      const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+      slots.push(timeString)
+    }
+  }
+  
+  return slots
+}
+
+export function addDays(date: Date, days: number): Date {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
+}
