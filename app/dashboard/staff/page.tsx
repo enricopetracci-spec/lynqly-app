@@ -65,7 +65,6 @@ export default function StaffPage() {
 
     setBusinessId(business.id)
 
-    // Load staff
     const { data: staffData } = await supabase
       .from('staff')
       .select(`
@@ -82,7 +81,6 @@ export default function StaffPage() {
       setStaff(staffData as StaffMember[])
     }
 
-    // Load services
     const { data: servicesData } = await supabase
       .from('services')
       .select('id, name')
@@ -101,7 +99,6 @@ export default function StaffPage() {
 
     if (!businessId) return
 
-    // Create staff member
     const { data: newStaff, error: staffError } = await supabase
       .from('staff')
       .insert({
@@ -119,7 +116,6 @@ export default function StaffPage() {
       return
     }
 
-    // Assign services
     if (formData.selectedServices.length > 0) {
       const staffServices = formData.selectedServices.map(serviceId => ({
         staff_id: newStaff.id,
@@ -131,7 +127,6 @@ export default function StaffPage() {
         .insert(staffServices)
     }
 
-    // Reset form
     setFormData({
       name: '',
       email: '',
@@ -180,7 +175,6 @@ export default function StaffPage() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -218,7 +212,6 @@ export default function StaffPage() {
         </Card>
       </div>
 
-      {/* Add Form Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <Card className="max-w-2xl w-full">
@@ -229,7 +222,7 @@ export default function StaffPage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Nome *</Label>
+                  <Label htmlFor="name">Nome</Label>
                   <Input
                     id="name"
                     value={formData.name}
@@ -306,7 +299,6 @@ export default function StaffPage() {
         </div>
       )}
 
-      {/* Staff List */}
       {staff.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
@@ -413,3 +405,11 @@ export default function StaffPage() {
                     </div>
                   </div>
                 </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
