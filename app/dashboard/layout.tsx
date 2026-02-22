@@ -28,11 +28,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/auth/login')
       return
     }
+const { data: business } = await supabase
+  .from('businesses')
+  .select('id, name')
+  .eq('user_id', session.data.session.user.id)
+  .single()
 
-    const business = await supabase
-      .from('businesses')
-      .select('id, name')
-      .eq('user_id', session.data.session.user.id)
-      .single()
-
-    if (business.data) {
+if (business) {
+  setBusinessName(business.name)
+  setBusinessId(business.id)
+}
+   
