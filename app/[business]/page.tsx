@@ -73,7 +73,7 @@ export default function BookingPage() {
   const loadAvailableSlots = () => {
     // For now, generate standard slots 9:00-18:00
     // In a real app, this would check staff availability and existing bookings
-    const slots = generateTimeSlots('09:00', '18:00', selectedService.duration_minutes)
+    const slots = generateTimeSlots(9, 19, selectedService.duration_minutes)
     setAvailableSlots(slots)
   }
 
