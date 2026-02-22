@@ -74,3 +74,14 @@ export function addDays(date: Date, days: number): Date {
   result.setDate(result.getDate() + days)
   return result
 }
+export function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
