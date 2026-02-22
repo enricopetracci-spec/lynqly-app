@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Calendar, Users, Briefcase, UserCog, Settings, LogOut, BarChart3, Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ToastProvider } from '@/components/ui/toast'
-import { BookingNotifications } from '@/components/booking-notifications'
+import { BookingNotifications } from '@/components/ui/booking-notifications'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
