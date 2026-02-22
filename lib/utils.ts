@@ -19,11 +19,23 @@ export function formatTime(timeString: string): string {
 }
 
 export function getBookingStatusColor(status: string): string {
-  const colors = {
+  const colors: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
     confirmed: 'bg-green-100 text-green-800 border-green-200',
     cancelled: 'bg-red-100 text-red-800 border-red-200',
     completed: 'bg-blue-100 text-blue-800 border-blue-200',
     no_show: 'bg-gray-100 text-gray-800 border-gray-200'
   }
-  return colors[status as keyof typeof colors
+  return colors[status] || 'bg-gray-100 text-gray-800'
+}
+
+export function getBookingStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: 'In attesa',
+    confirmed: 'Confermata',
+    cancelled: 'Cancellata',
+    completed: 'Completata',
+    no_show: 'Non presentato'
+  }
+  return labels[status] || status
+}
