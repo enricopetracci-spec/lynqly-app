@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { User, Phone, Mail, Calendar, Search, TrendingUp, Tag as TagIcon, Plus } from 'lucide-react'
+import { User, Phone, Mail, Search, Tag as TagIcon, Plus } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 type Tag = {
@@ -23,11 +23,6 @@ type Customer = {
   email: string | null
   notes: string | null
   created_at: string
-  bookings: {
-    id: string
-    booking_date: string
-    status: string
-  }[]
   customer_tag_assignments: {
     tag: Tag
   }[]
@@ -95,10 +90,10 @@ export default function ClientsPage() {
     console.log('Business ID:', business.id)
     setBusinessId(business.id)
 
-    // Load customers - simplified query first
+    // Load customers WITHOUT bookings join
     const { data: customersData, error: customersError } = await supabase
       .from('customers')
-      .select('*, bookings(id, booking_date, status)')
+      .select('*')
       .eq('business_id', business.id)
       .order('created_at', { ascending: false })
 
@@ -212,16 +207,6 @@ export default function ClientsPage() {
     loadData()
   }
 
-  const getCustomerStats = (customer: Customer) => {
-    const totalBookings = customer.bookings?.length || 0
-    const completedBookings = customer.bookings?.filter(b => b.status === 'completed').length || 0
-    const lastBooking = customer.bookings && customer.bookings.length > 0
-      ? customer.bookings.sort((a, b) => new Date(b.booking_date).getTime() - new Date(a.booking_date).getTime())[0]
-      : null
-
-    return { totalBookings, completedBookings, lastBooking }
-  }
-
   if (loading) {
     return <div>Caricamento...</div>
   }
@@ -268,11 +253,11 @@ export default function ClientsPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Clienti Attivi</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Con Tag</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {customers.filter(c => c.bookings?.some(b => b.status === 'confirmed' || b.status === 'pending')).length}
+              {customers.filter(c => c.customer_tag_assignments.length > 0).length}
             </div>
           </CardContent>
         </Card>
@@ -419,7 +404,6 @@ export default function ClientsPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filteredCustomers.map((customer) => {
-            const stats = getCustomerStats(customer)
             const customerTags = customer.customer_tag_assignments?.map(a => a.tag) || []
             
             return (
@@ -469,19 +453,6 @@ export default function ClientsPage() {
                           <strong>Note:</strong> {customer.notes}
                         </div>
                       )}
-
-                      <div className="mt-3 pt-3 border-t flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <TrendingUp className="w-4 h-4" />
-                          <span>{stats.totalBookings} prenotazioni</span>
-                        </div>
-                        {stats.lastBooking && (
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <Calendar className="w-4 h-4" />
-                            <span className="text-xs">Ultima: {formatDate(stats.lastBooking.booking_date)}</span>
-                          </div>
-                        )}
-                      </div>
                     </div>
 
                     <Button
