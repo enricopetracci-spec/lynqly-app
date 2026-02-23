@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Calendar, Users, Briefcase, UserCog, Settings, LogOut, BarChart3, Menu, X } from 'lucide-react'
+import { Calendar, Users, Briefcase, UserCog, Settings, LogOut, BarChart3, Menu, X, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -49,14 +49,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
-    { name: 'Prenotazioni', href: '/dashboard/bookings', icon: Calendar },
-    { name: 'Servizi', href: '/dashboard/services', icon: Briefcase },
-    { name: 'Clienti', href: '/dashboard/clients', icon: Users },
-    { name: 'Staff', href: '/dashboard/staff', icon: UserCog },
-    { name: 'Impostazioni', href: '/dashboard/settings', icon: Settings },
-  ]
-
+  { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+  { name: 'Prenotazioni', href: '/dashboard/bookings', icon: Calendar },
+  { name: 'Servizi', href: '/dashboard/services', icon: Briefcase },
+  { name: 'Preventivi', href: '/dashboard/quotes', icon: FileText },
+  { name: 'Clienti', href: '/dashboard/clients', icon: Users },
+  { name: 'Staff', href: '/dashboard/staff', icon: UserCog },
+  { name: 'Impostazioni', href: '/dashboard/settings', icon: Settings },
+]
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
