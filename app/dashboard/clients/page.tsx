@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { User, Phone, Mail, Search, Tag as TagIcon, Plus } from 'lucide-react'
+import { User, Phone, Mail, Search, Tag as TagIcon, Plus, Edit, Trash2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 type Tag = {
@@ -51,6 +51,8 @@ export default function ClientsPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [showTagAssignment, setShowTagAssignment] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showEditForm, setShowEditForm] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [businessId, setBusinessId] = useState<string | null>(null)
   
   const [formData, setFormData] = useState({
@@ -69,12 +71,8 @@ export default function ClientsPage() {
   }, [customers, searchQuery, selectedTagFilter])
 
   const loadData = async () => {
-    console.log('Loading customers...')
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      console.error('No session')
-      return
-    }
+    if (!session) return
 
     const { data: business } = await supabase
       .from('businesses')
@@ -82,49 +80,35 @@ export default function ClientsPage() {
       .eq('user_id', session.user.id)
       .single()
 
-    if (!business) {
-      console.error('No business found')
-      return
-    }
+    if (!business) return
 
-    console.log('Business ID:', business.id)
     setBusinessId(business.id)
 
-    // Load customers WITHOUT bookings join
-    const { data: customersData, error: customersError } = await supabase
+    const { data: customersData } = await supabase
       .from('customers')
       .select('*')
       .eq('business_id', business.id)
       .order('created_at', { ascending: false })
 
-    console.log('Customers data:', customersData)
-    console.log('Customers error:', customersError)
-
     if (customersData) {
-      // Load tag assignments for each customer
       for (const customer of customersData) {
         const { data: tagAssignments } = await supabase
           .from('customer_tag_assignments')
-          .select(`
-            tag:customer_tags(id, name, emoji, color)
-          `)
+          .select(`tag:customer_tags(id, name, emoji, color)`)
           .eq('customer_id', customer.id)
         
         customer.customer_tag_assignments = tagAssignments || []
       }
       
-      console.log('Customers with tags:', customersData)
       setCustomers(customersData as Customer[])
     }
 
-    // Load available tags
     const { data: tagsData } = await supabase
       .from('customer_tags')
       .select('*')
       .eq('business_id', business.id)
       .order('sort_order')
 
-    console.log('Tags:', tagsData)
     if (tagsData) {
       setTags(tagsData)
     }
@@ -156,10 +140,9 @@ export default function ClientsPage() {
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!businessId) return
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('customers')
       .insert({
         business_id: businessId,
@@ -168,19 +151,45 @@ export default function ClientsPage() {
         email: formData.email || null,
         notes: formData.notes || null
       })
-      .select()
-      .single()
 
-    if (error) {
-      console.error('Error adding customer:', error)
-      alert('Errore nella creazione del cliente')
-      return
+    if (!error) {
+      setFormData({ name: '', phone: '', email: '', notes: '' })
+      setShowAddForm(false)
+      loadData()
     }
+  }
 
-    console.log('Customer added:', data)
-    setFormData({ name: '', phone: '', email: '', notes: '' })
-    setShowAddForm(false)
-    loadData()
+  const handleEditCustomer = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingCustomer) return
+
+    const { error } = await supabase
+      .from('customers')
+      .update({
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email || null,
+        notes: formData.notes || null
+      })
+      .eq('id', editingCustomer.id)
+
+    if (!error) {
+      setShowEditForm(false)
+      setEditingCustomer(null)
+      setFormData({ name: '', phone: '', email: '', notes: '' })
+      loadData()
+    }
+  }
+
+  const handleDeleteCustomer = async (customerId: string, customerName: string) => {
+    if (!confirm(`Eliminare il cliente "${customerName}"? Questa azione non può essere annullata.`)) return
+    
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('id', customerId)
+    
+    if (!error) loadData()
   }
 
   const toggleTag = async (customerId: string, tagId: string) => {
@@ -198,10 +207,7 @@ export default function ClientsPage() {
     } else {
       await supabase
         .from('customer_tag_assignments')
-        .insert({
-          customer_id: customerId,
-          tag_id: tagId
-        })
+        .insert({ customer_id: customerId, tag_id: tagId })
     }
 
     loadData()
@@ -224,7 +230,6 @@ export default function ClientsPage() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -263,69 +268,33 @@ export default function ClientsPage() {
         </Card>
       </div>
 
-      {/* Add Customer Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <Card className="max-w-md w-full">
             <CardHeader>
               <CardTitle>Nuovo Cliente</CardTitle>
-              <CardDescription>Aggiungi un cliente all'anagrafica</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleAddCustomer} className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Nome *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    required
-                    placeholder="Mario Rossi"
-                  />
+                  <Label>Nome *</Label>
+                  <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
                 </div>
-
                 <div>
-                  <Label htmlFor="phone">Telefono *</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    required
-                    placeholder="333 1234567"
-                  />
+                  <Label>Telefono *</Label>
+                  <Input value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} required />
                 </div>
-
                 <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    placeholder="mario@example.com"
-                  />
+                  <Label>Email</Label>
+                  <Input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
                 </div>
-
                 <div>
-                  <Label htmlFor="notes">Note</Label>
-                  <textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    placeholder="Note aggiuntive..."
-                  />
+                  <Label>Note</Label>
+                  <textarea value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border rounded-md" />
                 </div>
-
                 <div className="flex gap-2 justify-end">
-                  <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
-                    Annulla
-                  </Button>
-                  <Button type="submit">
-                    Salva Cliente
-                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>Annulla</Button>
+                  <Button type="submit">Salva</Button>
                 </div>
               </form>
             </CardContent>
@@ -333,16 +302,44 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {showEditForm && editingCustomer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle>Modifica Cliente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleEditCustomer} className="space-y-4">
+                <div>
+                  <Label>Nome *</Label>
+                  <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+                </div>
+                <div>
+                  <Label>Telefono *</Label>
+                  <Input value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} required />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                </div>
+                <div>
+                  <Label>Note</Label>
+                  <textarea value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border rounded-md" />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button type="button" variant="outline" onClick={() => { setShowEditForm(false); setEditingCustomer(null) }}>Annulla</Button>
+                  <Button type="submit">Salva Modifiche</Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            placeholder="Cerca per nome, telefono o email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+          <Input placeholder="Cerca..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
         </div>
 
         {tags.length > 0 && (
@@ -352,26 +349,9 @@ export default function ClientsPage() {
               <span className="text-sm text-gray-600">Filtra per tag:</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedTagFilter(null)}
-                className={`px-3 py-1 rounded-full text-sm border ${
-                  !selectedTagFilter 
-                    ? 'bg-blue-600 text-white border-blue-600' 
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                Tutti
-              </button>
+              <button onClick={() => setSelectedTagFilter(null)} className={`px-3 py-1 rounded-full text-sm border ${!selectedTagFilter ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}>Tutti</button>
               {tags.map(tag => (
-                <button
-                  key={tag.id}
-                  onClick={() => setSelectedTagFilter(tag.id)}
-                  className={`px-3 py-1 rounded-full text-sm border flex items-center gap-1 ${
-                    selectedTagFilter === tag.id 
-                      ? `${getColorClass(tag.color)} ring-2 ring-offset-1 ring-gray-400`
-                      : getColorClass(tag.color)
-                  }`}
-                >
+                <button key={tag.id} onClick={() => setSelectedTagFilter(tag.id)} className={`px-3 py-1 rounded-full text-sm border flex items-center gap-1 ${selectedTagFilter === tag.id ? `${getColorClass(tag.color)} ring-2 ring-offset-1 ring-gray-400` : getColorClass(tag.color)}`}>
                   <span>{tag.emoji}</span>
                   <span>{tag.name}</span>
                 </button>
@@ -381,24 +361,13 @@ export default function ClientsPage() {
         )}
       </div>
 
-      {/* Customers List */}
       {filteredCustomers.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
             <User className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Nessun cliente trovato</h3>
-            <p className="text-gray-500 mb-4">
-              {searchQuery || selectedTagFilter
-                ? 'Prova a cercare con altri termini o cambia filtro'
-                : 'Aggiungi il tuo primo cliente per iniziare'
-              }
-            </p>
-            {!searchQuery && !selectedTagFilter && (
-              <Button onClick={() => setShowAddForm(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Aggiungi Primo Cliente
-              </Button>
-            )}
+            <p className="text-gray-500 mb-4">{searchQuery || selectedTagFilter ? 'Prova a cercare con altri termini' : 'Aggiungi il tuo primo cliente'}</p>
+            {!searchQuery && !selectedTagFilter && <Button onClick={() => setShowAddForm(true)}><Plus className="w-4 h-4 mr-2" />Aggiungi Primo Cliente</Button>}
           </CardContent>
         </Card>
       ) : (
@@ -424,10 +393,7 @@ export default function ClientsPage() {
                       {customerTags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-3">
                           {customerTags.map(tag => (
-                            <span
-                              key={tag.id}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getColorClass(tag.color)}`}
-                            >
+                            <span key={tag.id} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getColorClass(tag.color)}`}>
                               <span>{tag.emoji}</span>
                               <span>{tag.name}</span>
                             </span>
@@ -455,16 +421,24 @@ export default function ClientsPage() {
                       )}
                     </div>
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
+                    <div className="flex flex-col gap-2">
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setEditingCustomer(customer)
+                        setFormData({ name: customer.name, phone: customer.phone, email: customer.email || '', notes: customer.notes || '' })
+                        setShowEditForm(true)
+                      }}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => {
                         setSelectedCustomer(customer)
                         setShowTagAssignment(true)
-                      }}
-                    >
-                      <TagIcon className="w-4 h-4" />
-                    </Button>
+                      }}>
+                        <TagIcon className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDeleteCustomer(customer.id, customer.name)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -473,7 +447,6 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Tag Assignment Modal */}
       {showTagAssignment && selectedCustomer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowTagAssignment(false)}>
           <Card className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
@@ -482,27 +455,16 @@ export default function ClientsPage() {
                 <TagIcon className="w-5 h-5" />
                 Gestisci Tag - {selectedCustomer.name}
               </CardTitle>
-              <CardDescription>Seleziona i tag da assegnare al cliente</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {tags.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  Nessun tag disponibile. Creali nelle Impostazioni.
-                </p>
+                <p className="text-sm text-gray-500 text-center py-4">Nessun tag disponibile.</p>
               ) : (
                 <div className="space-y-2">
                   {tags.map(tag => {
                     const isAssigned = selectedCustomer.customer_tag_assignments?.some(a => a.tag.id === tag.id) || false
                     return (
-                      <button
-                        key={tag.id}
-                        onClick={() => toggleTag(selectedCustomer.id, tag.id)}
-                        className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
-                          isAssigned
-                            ? `${getColorClass(tag.color)} border-current`
-                            : 'bg-white border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
+                      <button key={tag.id} onClick={() => toggleTag(selectedCustomer.id, tag.id)} className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${isAssigned ? `${getColorClass(tag.color)} border-current` : 'bg-white border-gray-200'}`}>
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{tag.emoji}</span>
                           <span className="font-medium">{tag.name}</span>
@@ -519,11 +481,8 @@ export default function ClientsPage() {
                   })}
                 </div>
               )}
-
               <div className="flex justify-end pt-3">
-                <Button onClick={() => setShowTagAssignment(false)}>
-                  Chiudi
-                </Button>
+                <Button onClick={() => setShowTagAssignment(false)}>Chiudi</Button>
               </div>
             </CardContent>
           </Card>
