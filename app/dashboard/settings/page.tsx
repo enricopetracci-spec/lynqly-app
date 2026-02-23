@@ -7,14 +7,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Building2, Link as LinkIcon, User, Mail, Phone, MapPin, AlertCircle } from 'lucide-react'
+import { Building2, Link as LinkIcon, User, Mail, Phone, MapPin, AlertCircle, Tag } from 'lucide-react'
 import { generateSlug } from '@/lib/utils'
+import { CustomerTagsManager } from '@/components/customer-tags-manager'
 
 export default function SettingsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [businessId, setBusinessId] = useState<string | null>(null)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -49,6 +51,7 @@ export default function SettingsPage() {
       .single()
 
     if (business) {
+      setBusinessId(business.id)
       setFormData({
         name: business.name || '',
         slug: business.slug || '',
@@ -71,7 +74,6 @@ export default function SettingsPage() {
       [name]: value
     }))
 
-    // Auto-generate slug when name changes
     if (name === 'name') {
       setFormData(prev => ({
         ...prev,
@@ -84,42 +86,40 @@ export default function SettingsPage() {
     setSaving(true)
     setMessage(null)
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setMessage({ type: 'error', text: 'Sessione scaduta. Ricarica la pagina.' })
+        setSaving(false)
+        return
+      }
 
-    // Check if slug is already taken by another business
-    const { data: existingBusiness } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('slug', formData.slug)
-      .neq('user_id', session.user.id)
-      .single()
+      const { data, error } = await supabase
+        .from('businesses')
+        .update({
+          name: formData.name,
+          slug: formData.slug,
+          business_type: formData.business_type,
+          description: formData.description,
+          email: formData.email,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+        })
+        .eq('user_id', session.user.id)
+        .select()
 
-    if (existingBusiness) {
-      setMessage({ type: 'error', text: 'Questo link è già in uso. Scegli un nome diverso.' })
-      setSaving(false)
-      return
-    }
-
-    const { error } = await supabase
-      .from('businesses')
-      .update({
-        name: formData.name,
-        slug: formData.slug,
-        business_type: formData.business_type,
-        description: formData.description,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-      })
-      .eq('user_id', session.user.id)
-
-    if (error) {
-      setMessage({ type: 'error', text: 'Errore nel salvataggio. Riprova.' })
-    } else {
-      setMessage({ type: 'success', text: 'Impostazioni salvate con successo!' })
-      setTimeout(() => setMessage(null), 3000)
+      if (error) {
+        setMessage({ type: 'error', text: `Errore: ${error.message}` })
+      } else if (!data || data.length === 0) {
+        setMessage({ type: 'error', text: 'Nessuna modifica effettuata. Riprova.' })
+      } else {
+        setMessage({ type: 'success', text: 'Impostazioni salvate con successo!' })
+        setTimeout(() => setMessage(null), 3000)
+      }
+    } catch (err) {
+      console.error('Catch error:', err)
+      setMessage({ type: 'error', text: 'Errore imprevisto. Controlla la console.' })
     }
 
     setSaving(false)
@@ -129,7 +129,7 @@ export default function SettingsPage() {
     return <div>Caricamento...</div>
   }
 
-  const bookingUrl = `${window.location.origin}/${formData.slug}`
+  const bookingUrl = typeof window !== 'undefined' ? `${window.location.origin}/${formData.slug}` : ''
 
   return (
     <div className="space-y-6">
@@ -209,7 +209,7 @@ export default function SettingsPage() {
               placeholder="es: salone-maria"
             />
             <p className="text-sm text-gray-500 mt-1">
-              Questo apparirà nell'URL: {window.location.origin}/<strong>{formData.slug}</strong>
+              Questo apparirà nell URL: {typeof window !== 'undefined' ? window.location.origin : ''}/<strong>{formData.slug}</strong>
             </p>
           </div>
 
@@ -318,6 +318,22 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Tag Clienti */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Tag className="w-5 h-5" />
+            Tag Clienti
+          </CardTitle>
+          <CardDescription>
+            Gestisci i tag di evidenza per le anagrafiche clienti
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CustomerTagsManager businessId={businessId} />
+        </CardContent>
+      </Card>
+
       {/* Salva */}
       <div className="flex justify-end">
         <Button
@@ -331,3 +347,4 @@ export default function SettingsPage() {
     </div>
   )
 }
+
