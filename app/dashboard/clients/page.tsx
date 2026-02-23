@@ -5,8 +5,15 @@ import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { User, Phone, Mail, Calendar, Search, TrendingUp } from 'lucide-react'
+import { User, Phone, Mail, Calendar, Search, TrendingUp, Tag as TagIcon, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+
+type Tag = {
+  id: string
+  name: string
+  emoji: string
+  color: string
+}
 
 type Customer = {
   id: string
@@ -20,24 +27,44 @@ type Customer = {
     booking_date: string
     status: string
   }[]
+  customer_tag_assignments: {
+    tag: Tag
+  }[]
+}
+
+const getColorClass = (color: string) => {
+  const colors: Record<string, string> = {
+    blue: 'bg-blue-100 text-blue-800 border-blue-200',
+    green: 'bg-green-100 text-green-800 border-green-200',
+    yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    red: 'bg-red-100 text-red-800 border-red-200',
+    orange: 'bg-orange-100 text-orange-800 border-orange-200',
+    purple: 'bg-purple-100 text-purple-800 border-purple-200',
+    gray: 'bg-gray-100 text-gray-800 border-gray-200',
+  }
+  return colors[color] || colors.blue
 }
 
 export default function ClientsPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([])
+  const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [showTagAssignment, setShowTagAssignment] = useState(false)
+  const [businessId, setBusinessId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadCustomers()
+    loadData()
   }, [])
 
   useEffect(() => {
     applyFilters()
-  }, [customers, searchQuery])
+  }, [customers, searchQuery, selectedTagFilter])
 
-  const loadCustomers = async () => {
+  const loadData = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
@@ -49,18 +76,36 @@ export default function ClientsPage() {
 
     if (!business) return
 
-    const { data } = await supabase
+    setBusinessId(business.id)
+
+    // Load customers with tags
+    const { data: customersData } = await supabase
       .from('customers')
       .select(`
         *,
-        bookings(id, booking_date, status)
+        bookings(id, booking_date, status),
+        customer_tag_assignments(
+          tag:customer_tags(id, name, emoji, color)
+        )
       `)
       .eq('business_id', business.id)
       .order('created_at', { ascending: false })
 
-    if (data) {
-      setCustomers(data as Customer[])
+    if (customersData) {
+      setCustomers(customersData as Customer[])
     }
+
+    // Load available tags
+    const { data: tagsData } = await supabase
+      .from('customer_tags')
+      .select('*')
+      .eq('business_id', business.id)
+      .order('sort_order')
+
+    if (tagsData) {
+      setTags(tagsData)
+    }
+
     setLoading(false)
   }
 
@@ -75,7 +120,41 @@ export default function ClientsPage() {
       )
     }
 
+    if (selectedTagFilter) {
+      filtered = filtered.filter(c =>
+        c.customer_tag_assignments.some(assignment => 
+          assignment.tag.id === selectedTagFilter
+        )
+      )
+    }
+
     setFilteredCustomers(filtered)
+  }
+
+  const toggleTag = async (customerId: string, tagId: string) => {
+    const customer = customers.find(c => c.id === customerId)
+    if (!customer) return
+
+    const hasTag = customer.customer_tag_assignments.some(a => a.tag.id === tagId)
+
+    if (hasTag) {
+      // Remove tag
+      await supabase
+        .from('customer_tag_assignments')
+        .delete()
+        .eq('customer_id', customerId)
+        .eq('tag_id', tagId)
+    } else {
+      // Add tag
+      await supabase
+        .from('customer_tag_assignments')
+        .insert({
+          customer_id: customerId,
+          tag_id: tagId
+        })
+    }
+
+    loadData()
   }
 
   const getCustomerStats = (customer: Customer) => {
@@ -139,15 +218,54 @@ export default function ClientsPage() {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-        <Input
-          placeholder="Cerca per nome, telefono o email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      {/* Filters */}
+      <div className="flex flex-col gap-4">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="Cerca per nome, telefono o email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Tag Filters */}
+        {tags.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <TagIcon className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Filtra per tag:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedTagFilter(null)}
+                className={`px-3 py-1 rounded-full text-sm border ${
+                  !selectedTagFilter 
+                    ? 'bg-blue-600 text-white border-blue-600' 
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                Tutti
+              </button>
+              {tags.map(tag => (
+                <button
+                  key={tag.id}
+                  onClick={() => setSelectedTagFilter(tag.id)}
+                  className={`px-3 py-1 rounded-full text-sm border flex items-center gap-1 ${
+                    selectedTagFilter === tag.id 
+                      ? `${getColorClass(tag.color)} ring-2 ring-offset-1 ring-gray-400`
+                      : getColorClass(tag.color)
+                  }`}
+                >
+                  <span>{tag.emoji}</span>
+                  <span>{tag.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Customers List */}
@@ -157,7 +275,10 @@ export default function ClientsPage() {
             <User className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Nessun cliente trovato</h3>
             <p className="text-gray-500">
-              {searchQuery ? 'Prova a cercare con altri termini' : 'I clienti appariranno qui quando riceverai prenotazioni'}
+              {searchQuery || selectedTagFilter
+                ? 'Prova a cercare con altri termini o cambia filtro'
+                : 'I clienti appariranno qui quando riceverai prenotazioni'
+              }
             </p>
           </CardContent>
         </Card>
@@ -165,12 +286,14 @@ export default function ClientsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filteredCustomers.map((customer) => {
             const stats = getCustomerStats(customer)
+            const customerTags = customer.customer_tag_assignments.map(a => a.tag)
+            
             return (
-              <Card key={customer.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedCustomer(customer)}>
+              <Card key={customer.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-2">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                           <User className="w-5 h-5 text-blue-600" />
                         </div>
@@ -179,6 +302,21 @@ export default function ClientsPage() {
                           <p className="text-sm text-gray-500">Cliente dal {formatDate(customer.created_at)}</p>
                         </div>
                       </div>
+
+                      {/* Tags */}
+                      {customerTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {customerTags.map(tag => (
+                            <span
+                              key={tag.id}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getColorClass(tag.color)}`}
+                            >
+                              <span>{tag.emoji}</span>
+                              <span>{tag.name}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
                       <div className="space-y-1 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
@@ -212,6 +350,17 @@ export default function ClientsPage() {
                         )}
                       </div>
                     </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedCustomer(customer)
+                        setShowTagAssignment(true)
+                      }}
+                    >
+                      <TagIcon className="w-4 h-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -220,69 +369,55 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Customer Detail Modal (Simple version) */}
-      {selectedCustomer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedCustomer(null)}>
-          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      {/* Tag Assignment Modal */}
+      {showTagAssignment && selectedCustomer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowTagAssignment(false)}>
+          <Card className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                {selectedCustomer.name}
+                <TagIcon className="w-5 h-5" />
+                Gestisci Tag - {selectedCustomer.name}
               </CardTitle>
-              <CardDescription>Dettagli cliente e storico prenotazioni</CardDescription>
+              <CardDescription>Seleziona i tag da assegnare al cliente</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-2">Contatti</h4>
-                <div className="space-y-1 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    <span>{selectedCustomer.phone}</span>
-                  </div>
-                  {selectedCustomer.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4" />
-                      <span>{selectedCustomer.email}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {selectedCustomer.notes && (
-                <div>
-                  <h4 className="font-medium mb-2">Note</h4>
-                  <p className="text-sm text-gray-600">{selectedCustomer.notes}</p>
+            <CardContent className="space-y-3">
+              {tags.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  Nessun tag disponibile. Creali nelle Impostazioni.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {tags.map(tag => {
+                    const isAssigned = selectedCustomer.customer_tag_assignments.some(a => a.tag.id === tag.id)
+                    return (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleTag(selectedCustomer.id, tag.id)}
+                        className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                          isAssigned
+                            ? `${getColorClass(tag.color)} border-current`
+                            : 'bg-white border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{tag.emoji}</span>
+                          <span className="font-medium">{tag.name}</span>
+                        </div>
+                        {isAssigned && (
+                          <div className="w-5 h-5 bg-current rounded-full flex items-center justify-center text-white">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
 
-              <div>
-                <h4 className="font-medium mb-2">Storico Prenotazioni ({selectedCustomer.bookings.length})</h4>
-                <div className="space-y-2">
-                  {selectedCustomer.bookings.length === 0 ? (
-                    <p className="text-sm text-gray-500">Nessuna prenotazione</p>
-                  ) : (
-                    selectedCustomer.bookings
-                      .sort((a, b) => new Date(b.booking_date).getTime() - new Date(a.booking_date).getTime())
-                      .slice(0, 5)
-                      .map((booking) => (
-                        <div key={booking.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                          <span>{formatDate(booking.booking_date)}</span>
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            booking.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                            booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {booking.status}
-                          </span>
-                        </div>
-                      ))
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={() => setSelectedCustomer(null)}>
+              <div className="flex justify-end pt-3">
+                <Button onClick={() => setShowTagAssignment(false)}>
                   Chiudi
                 </Button>
               </div>
