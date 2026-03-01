@@ -64,35 +64,34 @@ export default function MarketingPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('id, slug')
-      .eq('user_id', session.user.id)
-      .single()
+   const { data: customersData } = await supabase
+  .from('customers')
+  .select('id, name, phone, created_at')
+  .eq('business_id', business.id)
 
-    if (!business) return
-
-    setBusinessSlug(business.slug || '')
-
-    const { data: customersData } = await supabase
-      .from('customers')
-      .select('id, name, phone, created_at')
-      .eq('business_id', business.id)
-
-    if (customersData) {
-      // Load tag assignments for each customer
-      for (const customer of customersData) {
-        const { data: tagAssignments } = await supabase
-          .from('customer_tag_assignments')
-          .select('tag:customer_tags(id, name)')
-          .eq('customer_id', customer.id)
-        
-        customer.customer_tag_assignments = tagAssignments || []
-      }
-      
-      setCustomers(customersData as Customer[])
+if (customersData) {
+  // Add empty array for tag assignments
+  const customersWithTags = customersData.map(customer => ({
+    ...customer,
+    customer_tag_assignments: []
+  }))
+  
+  // Load tag assignments separately
+  for (const customer of customersWithTags) {
+    const { data: assignments } = await supabase
+      .from('customer_tag_assignments')
+      .select('tag_id')
+      .eq('customer_id', customer.id)
+    
+    if (assignments) {
+      customer.customer_tag_assignments = assignments.map((a: any) => ({
+        tag: { id: a.tag_id, name: '' }
+      }))
     }
-
+  }
+  
+  setCustomers(customersWithTags)
+}
     const { data: tagsData } = await supabase
       .from('customer_tags')
       .select('id, name, emoji')
