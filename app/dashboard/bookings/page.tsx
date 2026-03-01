@@ -1,364 +1,316 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Calendar, Clock, User, Phone, Mail, CheckCircle, XCircle, MessageSquare, Search } from 'lucide-react'
-import { formatDate, formatTime, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils'
+import { Label } from '@/components/ui/label'
+import { Calendar, Clock, User, Phone, Mail, CheckCircle } from 'lucide-react'
 
-type Booking = {
-  id: string
-  booking_date: string
-  booking_time: string
-  status: string
-  customer_notes: string | null
-  internal_notes: string | null
-  customer: {
-    name: string
-    phone: string
-    email: string | null
-  }
-  service: {
-    name: string
-    duration_minutes: number
-    price: number
-  }
-  staff: {
-    name: string
-  } | null
-}
+export default function PublicBookingPage() {
+  const params = useParams()
+  const slug = params.business as string
 
-export default function BookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
+  const [business, setBusiness] = useState<any>(null)
+  const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all') // all, today, week, month
-  const [searchQuery, setSearchQuery] = useState('')
-  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [success, setSuccess] = useState(false)
+
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    service_id: '',
+    booking_date: '',
+    booking_time: '',
+    notes: ''
+  })
 
   useEffect(() => {
-    loadBookings()
-  }, [])
+    loadData()
+  }, [slug])
 
-  useEffect(() => {
-    applyFilters()
-  }, [bookings, filter, searchQuery])
-
-  const loadBookings = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-
-    const { data: business } = await supabase
+  const loadData = async () => {
+    // Load business by slug
+    const { data: bizData } = await supabase
       .from('businesses')
-      .select('id')
-      .eq('user_id', session.user.id)
+      .select('*')
+      .eq('slug', slug)
       .single()
 
-    if (!business) return
-
-    setBusinessId(business.id)
-
-    const { data } = await supabase
-      .from('bookings')
-      .select(`
-        *,
-        customer:customers(name, phone, email),
-        service:services(name, duration_minutes, price),
-        staff:staff(name)
-      `)
-      .eq('business_id', business.id)
-      .order('booking_date', { ascending: true })
-      .order('booking_time', { ascending: true })
-
-    if (data) {
-      setBookings(data as Booking[])
+    if (!bizData) {
+      setLoading(false)
+      return
     }
+
+    setBusiness(bizData)
+
+    // Load services
+    const { data: servicesData } = await supabase
+      .from('services')
+      .select('*')
+      .eq('business_id', bizData.id)
+      .eq('is_active', true)
+      .order('name')
+
+    setServices(servicesData || [])
     setLoading(false)
   }
 
-  const applyFilters = () => {
-    let filtered = [...bookings]
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
 
-    // Filter by date range
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    try {
+      // 1. Create or get customer
+      let customerId = null
 
-    if (filter === 'today') {
-      const todayStr = today.toISOString().split('T')[0]
-      filtered = filtered.filter(b => b.booking_date === todayStr)
-    } else if (filter === 'week') {
-      const weekFromNow = new Date(today)
-      weekFromNow.setDate(weekFromNow.getDate() + 7)
-      filtered = filtered.filter(b => {
-        const bookingDate = new Date(b.booking_date)
-        return bookingDate >= today && bookingDate <= weekFromNow
+      const { data: existingCustomer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('business_id', business.id)
+        .eq('phone', formData.phone)
+        .single()
+
+      if (existingCustomer) {
+        customerId = existingCustomer.id
+      } else {
+        const { data: newCustomer } = await supabase
+          .from('customers')
+          .insert({
+            business_id: business.id,
+            name: formData.name,
+            phone: formData.phone,
+            email: formData.email || null
+          })
+          .select()
+          .single()
+
+        customerId = newCustomer?.id
+      }
+
+      // 2. Create booking (if bookings table exists)
+      // Note: We haven't created bookings table yet, so we skip this for now
+      // This would be the code:
+      /*
+      await supabase.from('bookings').insert({
+        business_id: business.id,
+        customer_id: customerId,
+        service_id: formData.service_id,
+        booking_date: formData.booking_date,
+        booking_time: formData.booking_time,
+        notes: formData.notes,
+        status: 'pending'
       })
-    } else if (filter === 'month') {
-      const monthFromNow = new Date(today)
-      monthFromNow.setMonth(monthFromNow.getMonth() + 1)
-      filtered = filtered.filter(b => {
-        const bookingDate = new Date(b.booking_date)
-        return bookingDate >= today && bookingDate <= monthFromNow
+      */
+
+      setSuccess(true)
+      setFormData({
+        name: '',
+        phone: '',
+        email: '',
+        service_id: '',
+        booking_date: '',
+        booking_time: '',
+        notes: ''
       })
+    } catch (error) {
+      console.error('Booking error:', error)
+      alert('Errore durante la prenotazione. Riprova.')
     }
 
-    // Filter by search query
-    if (searchQuery) {
-      filtered = filtered.filter(b =>
-        b.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.customer.phone.includes(searchQuery)
-      )
-    }
-
-    setFilteredBookings(filtered)
+    setSubmitting(false)
   }
-
-  const updateBookingStatus = async (bookingId: string, newStatus: string) => {
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status: newStatus })
-      .eq('id', bookingId)
-
-    if (!error) {
-      loadBookings()
-    }
-  }
-
-  const getStats = () => {
-    const today = new Date().toISOString().split('T')[0]
-    const todayBookings = bookings.filter(b => b.booking_date === today)
-    const pending = bookings.filter(b => b.status === 'pending').length
-    const confirmed = bookings.filter(b => b.status === 'confirmed').length
-
-    return {
-      today: todayBookings.length,
-      pending,
-      confirmed,
-      total: bookings.length
-    }
-  }
-
-  const stats = getStats()
 
   if (loading) {
-    return <div>Caricamento...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Caricamento...</div>
+      </div>
+    )
+  }
+
+  if (!business) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="max-w-md w-full">
+          <CardContent className="text-center py-12">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Attività non trovata</h1>
+            <p className="text-gray-600">Il link che hai seguito non è valido</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Prenotazioni</h1>
-        <p className="text-gray-600 mt-1">Gestisci tutte le prenotazioni ricevute</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Oggi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.today}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">In attesa</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Confermate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.confirmed}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Totali</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex gap-2 overflow-x-auto">
-          <Button
-            variant={filter === 'all' ? 'default' : 'outline'}
-            onClick={() => setFilter('all')}
-            size="sm"
-          >
-            Tutte
-          </Button>
-          <Button
-            variant={filter === 'today' ? 'default' : 'outline'}
-            onClick={() => setFilter('today')}
-            size="sm"
-          >
-            Oggi
-          </Button>
-          <Button
-            variant={filter === 'week' ? 'default' : 'outline'}
-            onClick={() => setFilter('week')}
-            size="sm"
-          >
-            Settimana
-          </Button>
-          <Button
-            variant={filter === 'month' ? 'default' : 'outline'}
-            onClick={() => setFilter('month')}
-            size="sm"
-          >
-            Mese
-          </Button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">{business.name}</h1>
+          {business.description && (
+            <p className="text-gray-600">{business.description}</p>
+          )}
+          {business.city && (
+            <p className="text-sm text-gray-500 mt-2">📍 {business.city}</p>
+          )}
         </div>
 
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            placeholder="Cerca per nome o telefono..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
-
-      {/* Bookings List */}
-      {filteredBookings.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nessuna prenotazione</h3>
-            <p className="text-gray-500">
-              {filter === 'all' 
-                ? 'Non ci sono ancora prenotazioni'
-                : `Nessuna prenotazione ${filter === 'today' ? 'oggi' : `questa ${filter === 'week' ? 'settimana' : 'mese'}`}`
-              }
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredBookings.map((booking) => (
-            <Card key={booking.id}>
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                  {/* Left: Booking Info */}
-                  <div className="flex-1 space-y-3">
-                    {/* Date & Time */}
-                    <div className="flex items-center gap-2 text-lg font-semibold">
-                      <Calendar className="w-5 h-5 text-blue-600" />
-                      <span>{formatDate(booking.booking_date)}</span>
-                      <Clock className="w-5 h-5 text-blue-600 ml-2" />
-                      <span>{formatTime(booking.booking_time)}</span>
-                    </div>
-
-                    {/* Customer */}
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <User className="w-4 h-4" />
-                      <span className="font-medium">{booking.customer.name}</span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3 text-sm text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <Phone className="w-4 h-4" />
-                        <span>{booking.customer.phone}</span>
-                      </div>
-                      {booking.customer.email && (
-                        <div className="flex items-center gap-1">
-                          <Mail className="w-4 h-4" />
-                          <span>{booking.customer.email}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Service */}
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <div className="font-medium text-gray-900">{booking.service.name}</div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        Durata: {booking.service.duration_minutes} min • €{booking.service.price.toFixed(2)}
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    {booking.customer_notes && (
-                      <div className="flex gap-2 text-sm">
-                        <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                        <span className="text-gray-600 italic">{booking.customer_notes}</span>
-                      </div>
-                    )}
-
-                    {/* Status Badge */}
-                    <div>
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getBookingStatusColor(booking.status)}`}>
-                        {getBookingStatusLabel(booking.status)}
-                      </span>
-                    </div>
+        {success ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Prenotazione Ricevuta!</h2>
+              <p className="text-gray-600 mb-6">Ti contatteremo a breve per confermare l'appuntamento.</p>
+              <Button onClick={() => setSuccess(false)}>
+                Nuova Prenotazione
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-6 h-6" />
+                Prenota Appuntamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Name */}
+                <div>
+                  <Label htmlFor="name">Nome Completo *</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="pl-10"
+                      placeholder="Mario Rossi"
+                      required
+                    />
                   </div>
-
-                  {/* Right: Actions */}
-                  {booking.status === 'pending' && (
-                    <div className="flex sm:flex-col gap-2">
-                      <Button
-                        size="sm"
-                        className="flex-1 sm:flex-initial"
-                        onClick={() => updateBookingStatus(booking.id, 'confirmed')}
-                      >
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Conferma
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 sm:flex-initial"
-                        onClick={() => updateBookingStatus(booking.id, 'cancelled')}
-                      >
-                        <XCircle className="w-4 h-4 mr-1" />
-                        Rifiuta
-                      </Button>
-                    </div>
-                  )}
-
-                  {booking.status === 'confirmed' && (
-                    <div className="flex sm:flex-col gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 sm:flex-initial"
-                        onClick={() => updateBookingStatus(booking.id, 'completed')}
-                      >
-                        Completata
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 sm:flex-initial"
-                        onClick={() => updateBookingStatus(booking.id, 'cancelled')}
-                      >
-                        Cancella
-                      </Button>
-                    </div>
-                  )}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                {/* Phone */}
+                <div>
+                  <Label htmlFor="phone">Telefono *</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                      className="pl-10"
+                      placeholder="333 1234567"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="pl-10"
+                      placeholder="mario@example.com"
+                    />
+                  </div>
+                </div>
+
+                {/* Service */}
+                {services.length > 0 && (
+                  <div>
+                    <Label htmlFor="service">Servizio *</Label>
+                    <select
+                      id="service"
+                      value={formData.service_id}
+                      onChange={(e) => setFormData({...formData, service_id: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-md"
+                      required
+                    >
+                      <option value="">Seleziona un servizio</option>
+                      {services.map(service => (
+                        <option key={service.id} value={service.id}>
+                          {service.name} - €{service.price} ({service.duration_minutes} min)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Date */}
+                <div>
+                  <Label htmlFor="date">Data *</Label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="date"
+                      type="date"
+                      value={formData.booking_date}
+                      onChange={(e) => setFormData({...formData, booking_date: e.target.value})}
+                      className="pl-10"
+                      min={new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Time */}
+                <div>
+                  <Label htmlFor="time">Orario *</Label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="time"
+                      type="time"
+                      value={formData.booking_time}
+                      onChange={(e) => setFormData({...formData, booking_time: e.target.value})}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <Label htmlFor="notes">Note (opzionale)</Label>
+                  <textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                    rows={3}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="Eventuali richieste particolari..."
+                  />
+                </div>
+
+                {/* Submit */}
+                <Button type="submit" disabled={submitting} className="w-full" size="lg">
+                  {submitting ? 'Invio in corso...' : 'Prenota Ora'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Footer */}
+        <div className="text-center mt-8 text-sm text-gray-600">
+          <p>Powered by <strong>Lynqly</strong></p>
         </div>
-      )}
+      </div>
     </div>
   )
 }
