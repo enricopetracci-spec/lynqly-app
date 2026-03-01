@@ -15,7 +15,7 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
   const getEmbedCode = () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://lynqly-app.vercel.app'
     return `<iframe 
-  src="${baseUrl}/${businessSlug}" 
+  src="${baseUrl}/book/${businessSlug}"
   width="${width}" 
   height="${height}"
   frameborder="0"
@@ -55,7 +55,7 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
             }}
           >
             <iframe
-              src={previewUrl}
+              const previewUrl = typeof window !== 'undefined' ? `${window.location.origin}/book/${businessSlug}` : ''
               width="100%"
               height="100%"
               frameBorder="0"
