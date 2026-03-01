@@ -2,161 +2,55 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { MessageSquare, Send, Users, Eye } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Users, FileText, TrendingUp } from 'lucide-react'
 
-const TEMPLATES = {
-  reactivation: {
-    name: 'Riprenotazione',
-    message: 'Ciao {nome}! 👋\nÈ passato un po\' di tempo dall\'ultima visita. Che ne dici di prenotare un nuovo appuntamento?\n{link}\nTi aspettiamo! 🌟'
-  },
-  promotion: {
-    name: 'Promozione',
-    message: 'Ciao {nome}! 🎉\nAbbiamo una promozione speciale per te! Prenota ora e approfitta dell\'offerta.\n{link}\nNon perdere questa occasione! ✨'
-  },
-  reminder: {
-    name: 'Reminder Generico',
-    message: 'Ciao {nome}! 👋\nVuoi prenotare il tuo prossimo appuntamento?\n{link}\nSiamo qui per te! 💙'
-  },
-  new_service: {
-    name: 'Nuovo Servizio',
-    message: 'Ciao {nome}! ✨\nAbbiamo un nuovo servizio che potrebbe interessarti! Scoprilo e prenota ora.\n{link}\nNon vediamo l\'ora di vederti! 🎊'
-  }
-}
-
-export default function MarketingPage() {
-  const [customers, setCustomers] = useState<any[]>([])
-  const [tags, setTags] = useState<any[]>([])
-  const [businessSlug, setBusinessSlug] = useState('')
+export default function DashboardPage() {
+  const [stats, setStats] = useState({
+    customers: 0,
+    quotes: 0,
+    services: 0
+  })
   const [loading, setLoading] = useState(true)
-  
-  const [selectedTemplate, setSelectedTemplate] = useState<keyof typeof TEMPLATES>('reactivation')
-  const [customMessage, setCustomMessage] = useState(TEMPLATES.reactivation.message)
-  const [segment, setSegment] = useState('all')
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [inactiveDays, setInactiveDays] = useState(30)
 
   useEffect(() => {
-    loadData()
+    loadStats()
   }, [])
 
-  useEffect(() => {
-    setCustomMessage(TEMPLATES[selectedTemplate].message)
-  }, [selectedTemplate])
-
-  const loadData = async () => {
+  const loadStats = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
     const { data: business } = await supabase
       .from('businesses')
-      .select('id, slug')
+      .select('id')
       .eq('user_id', session.user.id)
       .single()
 
     if (!business) return
-    setBusinessSlug(business.slug || '')
 
-    const { data: customersData } = await supabase
+    const { data: customers } = await supabase
       .from('customers')
-      .select('id, name, phone, created_at')
+      .select('id')
       .eq('business_id', business.id)
 
-    if (customersData) {
-      const customersWithTags = await Promise.all(
-        customersData.map(async (customer) => {
-          const { data: tagData } = await supabase
-            .from('customer_tag_assignments')
-            .select('tag_id')
-            .eq('customer_id', customer.id)
-          
-          return {
-            ...customer,
-            tagIds: tagData ? tagData.map((t: any) => t.tag_id) : []
-          }
-        })
-      )
-      
-      setCustomers(customersWithTags)
-    }
-
-    const { data: tagsData } = await supabase
-      .from('customer_tags')
-      .select('id, name, emoji')
+    const { data: quotes } = await supabase
+      .from('quotes')
+      .select('id')
       .eq('business_id', business.id)
-      .order('sort_order')
 
-    if (tagsData) {
-      setTags(tagsData)
-    }
+    const { data: services } = await supabase
+      .from('services')
+      .select('id')
+      .eq('business_id', business.id)
+
+    setStats({
+      customers: customers?.length || 0,
+      quotes: quotes?.length || 0,
+      services: services?.length || 0
+    })
 
     setLoading(false)
-  }
-
-  const getFilteredCustomers = () => {
-    let filtered = [...customers]
-
-    if (segment === 'new') {
-      const monthAgo = new Date()
-      monthAgo.setMonth(monthAgo.getMonth() - 1)
-      filtered = filtered.filter(c => new Date(c.created_at) > monthAgo)
-    }
-
-    if (segment === 'inactive') {
-      const cutoffDate = new Date()
-      cutoffDate.setDate(cutoffDate.getDate() - inactiveDays)
-      filtered = filtered.filter(c => new Date(c.created_at) < cutoffDate)
-    }
-
-    if (segment === 'tags' && selectedTags.length > 0) {
-      filtered = filtered.filter(c =>
-        c.tagIds && c.tagIds.some((tagId: string) => selectedTags.includes(tagId))
-      )
-    }
-
-    return filtered
-  }
-
-  const filteredCustomers = getFilteredCustomers()
-
-  const getPreviewMessage = () => {
-    const exampleName = filteredCustomers.length > 0 ? filteredCustomers[0].name : 'Mario'
-    const bookingLink = businessSlug ? `${typeof window !== 'undefined' ? window.location.origin : ''}/${businessSlug}` : 'https://tuodominio.it/prenota'
-    
-    return customMessage
-      .replace(/{nome}/g, exampleName)
-      .replace(/{link}/g, bookingLink)
-  }
-
-  const handleSendCampaign = () => {
-    if (filteredCustomers.length === 0) {
-      alert('Nessun destinatario selezionato!')
-      return
-    }
-
-    const bookingLink = businessSlug ? `${window.location.origin}/${businessSlug}` : ''
-    
-    filteredCustomers.forEach((customer, index) => {
-      const personalizedMessage = customMessage
-        .replace(/{nome}/g, customer.name)
-        .replace(/{link}/g, bookingLink)
-      
-      const whatsappUrl = `https://wa.me/${customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(personalizedMessage)}`
-      
-      setTimeout(() => {
-        window.open(whatsappUrl, '_blank')
-      }, index * 500)
-    })
-  }
-
-  const toggleTag = (tagId: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagId) 
-        ? prev.filter(id => id !== tagId)
-        : [...prev, tagId]
-    )
   }
 
   if (loading) {
@@ -166,161 +60,52 @@ export default function MarketingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Marketing</h1>
-        <p className="text-gray-600 mt-1">Crea campagne WhatsApp per i tuoi clienti</p>
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-gray-600 mt-1">Panoramica della tua attività</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" />
-                Template Messaggio
-              </CardTitle>
-              <CardDescription>Scegli un template o personalizza il messaggio</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {Object.entries(TEMPLATES).map(([key, template]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedTemplate(key as keyof typeof TEMPLATES)}
-                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                      selectedTemplate === key
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    {template.name}
-                  </button>
-                ))}
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Clienti Totali</CardTitle>
+            <Users className="w-4 h-4 text-gray-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.customers}</div>
+          </CardContent>
+        </Card>
 
-              <div>
-                <Label>Messaggio</Label>
-                <textarea
-                  value={customMessage}
-                  onChange={(e) => setCustomMessage(e.target.value)}
-                  rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Usa <code className="bg-gray-100 px-1 rounded">{'{nome}'}</code> per il nome e{' '}
-                  <code className="bg-gray-100 px-1 rounded">{'{link}'}</code> per il link
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Preventivi</CardTitle>
+            <FileText className="w-4 h-4 text-gray-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.quotes}</div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Segmento Target
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="segment" value="all" checked={segment === 'all'} onChange={(e) => setSegment(e.target.value)} className="w-4 h-4" />
-                  <span className="font-medium">Tutti i clienti</span>
-                </label>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Servizi</CardTitle>
+            <TrendingUp className="w-4 h-4 text-gray-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.services}</div>
+          </CardContent>
+        </Card>
+      </div>
 
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="segment" value="new" checked={segment === 'new'} onChange={(e) => setSegment(e.target.value)} className="w-4 h-4" />
-                  <span className="font-medium">Nuovi clienti (ultimo mese)</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="segment" value="inactive" checked={segment === 'inactive'} onChange={(e) => setSegment(e.target.value)} className="w-4 h-4" />
-                  <span className="font-medium">Clienti inattivi</span>
-                </label>
-
-                {segment === 'inactive' && (
-                  <div className="ml-6 mt-2">
-                    <Label className="text-sm">Giorni di inattività</Label>
-                    <input type="number" value={inactiveDays} onChange={(e) => setInactiveDays(parseInt(e.target.value))} min="1" className="w-24 px-2 py-1 border rounded" />
-                  </div>
-                )}
-
-                {tags.length > 0 && (
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="segment" value="tags" checked={segment === 'tags'} onChange={(e) => setSegment(e.target.value)} className="w-4 h-4" />
-                    <span className="font-medium">Per tag</span>
-                  </label>
-                )}
-
-                {segment === 'tags' && tags.length > 0 && (
-                  <div className="ml-6 mt-2 flex flex-wrap gap-2">
-                    {tags.map(tag => (
-                      <button
-                        key={tag.id}
-                        onClick={() => toggleTag(tag.id)}
-                        className={`px-3 py-1 rounded-full text-sm border ${
-                          selectedTags.includes(tag.id) ? 'bg-blue-100 text-blue-800 border-blue-300' : 'bg-gray-100 text-gray-700 border-gray-300'
-                        }`}
-                      >
-                        {tag.emoji} {tag.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Destinatari:</span>
-                  <span className="text-2xl font-bold text-blue-600">{filteredCustomers.length}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Button onClick={handleSendCampaign} disabled={filteredCustomers.length === 0} size="lg" className="w-full">
-            <Send className="w-4 h-4 mr-2" />
-            Invia Campagna ({filteredCustomers.length} destinatari)
-          </Button>
-
-          <p className="text-sm text-gray-500 text-center">
-            I messaggi verranno aperti in WhatsApp Web.
+      <Card>
+        <CardHeader>
+          <CardTitle>Benvenuto in Lynqly!</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-600">
+            Gestisci la tua attività in modo semplice ed efficace.
           </p>
-        </div>
-
-        <div>
-          <Card className="sticky top-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5" />
-                Anteprima
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-                <div className="bg-white rounded-lg p-3 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3 pb-3 border-b">
-                    <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                      <Users className="w-5 h-5 text-gray-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-sm">
-                        {filteredCustomers.length > 0 ? filteredCustomers[0].name : 'Mario Rossi'}
-                      </div>
-                      <div className="text-xs text-gray-500">online</div>
-                    </div>
-                  </div>
-                  <div className="bg-green-100 rounded-lg p-3 text-sm whitespace-pre-wrap">
-                    {getPreviewMessage()}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-2 text-right">
-                    {new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
