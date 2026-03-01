@@ -51,7 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   { name: 'Prenotazioni', href: '/dashboard/bookings', icon: Calendar },
   { name: 'Servizi', href: '/dashboard/services', icon: Briefcase },
   { name: 'Preventivi', href: '/dashboard/quotes', icon: FileText },
-  { name: 'Marketing', href: '/dashboard/marketing', icon: MessageSquare },
+  { name: 'Campagne', href: '/dashboard/campaigns', icon: MessageSquare },
   { name: 'Clienti', href: '/dashboard/clients', icon: Users },
   { name: 'Staff', href: '/dashboard/staff', icon: UserCog },
   { name: 'Impostazioni', href: '/dashboard/settings', icon: Settings },
