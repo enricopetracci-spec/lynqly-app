@@ -12,6 +12,8 @@ import { generateSlug } from '@/lib/utils'
 import { CustomerTagsManager } from '@/components/customer-tags-manager'
 import { StaffRolesManager, StaffSkillsManager } from '@/components/staff-roles-skills'
 import { Briefcase, Award } from 'lucide-react'
+import { WidgetEmbed } from '@/components/widget-embed'
+import { Code } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -364,6 +366,21 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <StaffSkillsManager businessId={businessId} />
+        </CardContent>
+      </Card>
+      {/* Widget Embed */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Code className="w-5 h-5" />
+            Widget Prenotazioni
+          </CardTitle>
+          <CardDescription>
+            Incorpora il modulo di prenotazione nel tuo sito web
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WidgetEmbed businessSlug={formData.slug} />
         </CardContent>
       </Card>
 
