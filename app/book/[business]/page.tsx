@@ -92,10 +92,7 @@ export default function PublicBookingPage() {
         customerId = newCustomer?.id
       }
 
-      // 2. Create booking (if bookings table exists)
-      // Note: We haven't created bookings table yet, so we skip this for now
-      // This would be the code:
-      /*
+// 2. Create booking
       await supabase.from('bookings').insert({
         business_id: business.id,
         customer_id: customerId,
@@ -105,7 +102,6 @@ export default function PublicBookingPage() {
         notes: formData.notes,
         status: 'pending'
       })
-      */
 
       setSuccess(true)
       setFormData({
