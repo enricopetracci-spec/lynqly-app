@@ -15,7 +15,7 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
   const getEmbedCode = () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://lynqly-app.vercel.app'
     return `<iframe 
-  src="${baseUrl}/book/${businessSlug}"
+  src="${baseUrl}/book/${businessSlug}" 
   width="${width}" 
   height="${height}"
   frameborder="0"
@@ -30,7 +30,7 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const previewUrl = typeof window !== 'undefined' ? `${window.location.origin}/${businessSlug}` : ''
+  const previewUrl = typeof window !== 'undefined' ? `${window.location.origin}/book/${businessSlug}` : ''
 
   if (!businessSlug) {
     return (
@@ -42,7 +42,6 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Preview */}
       <div>
         <Label className="text-sm font-medium mb-2 block">Anteprima Widget</Label>
         <div className="border rounded-lg p-4 bg-gray-50">
@@ -55,7 +54,7 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
             }}
           >
             <iframe
-              const previewUrl = typeof window !== 'undefined' ? `${window.location.origin}/book/${businessSlug}` : ''
+              src={previewUrl}
               width="100%"
               height="100%"
               frameBorder="0"
@@ -66,7 +65,6 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
         </div>
       </div>
 
-      {/* Customization */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="width" className="text-sm">Larghezza</Label>
@@ -88,7 +86,6 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
         </div>
       </div>
 
-      {/* Code */}
       <div>
         <Label className="text-sm font-medium mb-2 block">Codice HTML</Label>
         <div className="relative">
@@ -116,7 +113,6 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
         </div>
       </div>
 
-      {/* Instructions */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
           <Code className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -124,14 +120,13 @@ export function WidgetEmbed({ businessSlug }: { businessSlug: string }) {
             <div className="font-medium mb-2">Come usare il widget:</div>
             <ol className="list-decimal list-inside space-y-1">
               <li>Copia il codice HTML sopra</li>
-              <li>Incollalo nella pagina del tuo sito web dove vuoi mostrare il modulo di prenotazione</li>
-              <li>Il widget si adatterà automaticamente al design del tuo sito</li>
+              <li>Incollalo nella pagina del tuo sito web</li>
+              <li>Il widget si adatterà automaticamente</li>
             </ol>
           </div>
         </div>
       </div>
 
-      {/* Test Link */}
       <div className="flex items-center gap-2">
         <span className="text-sm text-gray-600">Testa il widget:</span>
         <a
