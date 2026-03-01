@@ -94,15 +94,14 @@ export default function PublicBookingPage() {
 
 // 2. Create booking
       const { data: bookingData, error: bookingError } = await supabase.from('bookings').insert({
-        business_id: business.id,
-        customer_id: customerId,
-        service_id: formData.service_id,
-        booking_date: formData.booking_date,
-        booking_time: formData.booking_time,
-        notes: formData.notes,
-        status: 'pending'
-      })
-
+  business_id: business.id,
+  customer_id: customerId,
+  service_id: formData.service_id || null,
+  booking_date: formData.booking_date,
+  booking_time: formData.booking_time,
+  notes: formData.notes || null,
+  status: 'pending'
+})
       if (bookingError) {
         console.error('Booking error:', bookingError)
         alert('Errore prenotazione: ' + bookingError.message)
