@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label'
 import { Building2, Link as LinkIcon, User, Mail, Phone, MapPin, AlertCircle, Tag } from 'lucide-react'
 import { generateSlug } from '@/lib/utils'
 import { CustomerTagsManager } from '@/components/customer-tags-manager'
+import { StaffRolesManager, StaffSkillsManager } from '@/components/staff-roles-skills'
+import { Briefcase, Award } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -331,6 +333,37 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <CustomerTagsManager businessId={businessId} />
+        </CardContent>
+      </Card>
+      {/* Ruoli Staff */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Briefcase className="w-5 h-5" />
+            Ruoli Staff
+          </CardTitle>
+          <CardDescription>
+            Gestisci i ruoli del personale
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <StaffRolesManager businessId={businessId} />
+        </CardContent>
+      </Card>
+
+      {/* Competenze Staff */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Award className="w-5 h-5" />
+            Competenze Staff
+          </CardTitle>
+          <CardDescription>
+            Gestisci le competenze disponibili
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <StaffSkillsManager businessId={businessId} />
         </CardContent>
       </Card>
 
