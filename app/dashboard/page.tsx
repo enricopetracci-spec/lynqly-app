@@ -7,20 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { MessageSquare, Send, Users, Eye } from 'lucide-react'
 
-type Customer = {
-  id: string
-  name: string
-  phone: string
-  created_at: string
-  customer_tag_assignments: any[]
-}
-
-type Tag = {
-  id: string
-  name: string
-  emoji: string
-}
-
 const TEMPLATES = {
   reactivation: {
     name: 'Riprenotazione',
@@ -41,8 +27,8 @@ const TEMPLATES = {
 }
 
 export default function MarketingPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [tags, setTags] = useState<Tag[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
+  const [tags, setTags] = useState<any[]>([])
   const [businessSlug, setBusinessSlug] = useState('')
   const [loading, setLoading] = useState(true)
   
@@ -64,34 +50,38 @@ export default function MarketingPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-   const { data: customersData } = await supabase
-  .from('customers')
-  .select('id, name, phone, created_at')
-  .eq('business_id', business.id)
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('id, slug')
+      .eq('user_id', session.user.id)
+      .single()
 
-if (customersData) {
-  // Add empty array for tag assignments
-  const customersWithTags = customersData.map(customer => ({
-    ...customer,
-    customer_tag_assignments: []
-  }))
-  
-  // Load tag assignments separately
-  for (const customer of customersWithTags) {
-    const { data: assignments } = await supabase
-      .from('customer_tag_assignments')
-      .select('tag_id')
-      .eq('customer_id', customer.id)
-    
-    if (assignments) {
-      customer.customer_tag_assignments = assignments.map((a: any) => ({
-        tag: { id: a.tag_id, name: '' }
-      }))
+    if (!business) return
+    setBusinessSlug(business.slug || '')
+
+    const { data: customersData } = await supabase
+      .from('customers')
+      .select('id, name, phone, created_at')
+      .eq('business_id', business.id)
+
+    if (customersData) {
+      const customersWithTags = await Promise.all(
+        customersData.map(async (customer) => {
+          const { data: tagData } = await supabase
+            .from('customer_tag_assignments')
+            .select('tag_id')
+            .eq('customer_id', customer.id)
+          
+          return {
+            ...customer,
+            tagIds: tagData ? tagData.map((t: any) => t.tag_id) : []
+          }
+        })
+      )
+      
+      setCustomers(customersWithTags)
     }
-  }
-  
-  setCustomers(customersWithTags)
-}
+
     const { data: tagsData } = await supabase
       .from('customer_tags')
       .select('id, name, emoji')
@@ -122,9 +112,7 @@ if (customersData) {
 
     if (segment === 'tags' && selectedTags.length > 0) {
       filtered = filtered.filter(c =>
-        c.customer_tag_assignments && c.customer_tag_assignments.some((a: any) => 
-          a.tag && selectedTags.includes(a.tag.id)
-        )
+        c.tagIds && c.tagIds.some((tagId: string) => selectedTags.includes(tagId))
       )
     }
 
@@ -216,11 +204,10 @@ if (customersData) {
                   onChange={(e) => setCustomMessage(e.target.value)}
                   rows={6}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm"
-                  placeholder="Scrivi il tuo messaggio..."
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Usa <code className="bg-gray-100 px-1 rounded">{'{nome}'}</code> per il nome del cliente e{' '}
-                  <code className="bg-gray-100 px-1 rounded">{'{link}'}</code> per il link di prenotazione
+                  Usa <code className="bg-gray-100 px-1 rounded">{'{nome}'}</code> per il nome e{' '}
+                  <code className="bg-gray-100 px-1 rounded">{'{link}'}</code> per il link
                 </p>
               </div>
             </CardContent>
@@ -232,69 +219,34 @@ if (customersData) {
                 <Users className="w-5 h-5" />
                 Segmento Target
               </CardTitle>
-              <CardDescription>Chi riceverà questo messaggio?</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="segment"
-                    value="all"
-                    checked={segment === 'all'}
-                    onChange={(e) => setSegment(e.target.value)}
-                    className="w-4 h-4"
-                  />
+                  <input type="radio" name="segment" value="all" checked={segment === 'all'} onChange={(e) => setSegment(e.target.value)} className="w-4 h-4" />
                   <span className="font-medium">Tutti i clienti</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="segment"
-                    value="new"
-                    checked={segment === 'new'}
-                    onChange={(e) => setSegment(e.target.value)}
-                    className="w-4 h-4"
-                  />
+                  <input type="radio" name="segment" value="new" checked={segment === 'new'} onChange={(e) => setSegment(e.target.value)} className="w-4 h-4" />
                   <span className="font-medium">Nuovi clienti (ultimo mese)</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="segment"
-                    value="inactive"
-                    checked={segment === 'inactive'}
-                    onChange={(e) => setSegment(e.target.value)}
-                    className="w-4 h-4"
-                  />
+                  <input type="radio" name="segment" value="inactive" checked={segment === 'inactive'} onChange={(e) => setSegment(e.target.value)} className="w-4 h-4" />
                   <span className="font-medium">Clienti inattivi</span>
                 </label>
 
                 {segment === 'inactive' && (
                   <div className="ml-6 mt-2">
                     <Label className="text-sm">Giorni di inattività</Label>
-                    <input
-                      type="number"
-                      value={inactiveDays}
-                      onChange={(e) => setInactiveDays(parseInt(e.target.value))}
-                      min="1"
-                      className="w-24 px-2 py-1 border rounded"
-                    />
+                    <input type="number" value={inactiveDays} onChange={(e) => setInactiveDays(parseInt(e.target.value))} min="1" className="w-24 px-2 py-1 border rounded" />
                   </div>
                 )}
 
                 {tags.length > 0 && (
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="segment"
-                      value="tags"
-                      checked={segment === 'tags'}
-                      onChange={(e) => setSegment(e.target.value)}
-                      className="w-4 h-4"
-                    />
+                    <input type="radio" name="segment" value="tags" checked={segment === 'tags'} onChange={(e) => setSegment(e.target.value)} className="w-4 h-4" />
                     <span className="font-medium">Per tag</span>
                   </label>
                 )}
@@ -305,10 +257,8 @@ if (customersData) {
                       <button
                         key={tag.id}
                         onClick={() => toggleTag(tag.id)}
-                        className={`px-3 py-1 rounded-full text-sm border transition-all ${
-                          selectedTags.includes(tag.id)
-                            ? 'bg-blue-100 text-blue-800 border-blue-300'
-                            : 'bg-gray-100 text-gray-700 border-gray-300'
+                        className={`px-3 py-1 rounded-full text-sm border ${
+                          selectedTags.includes(tag.id) ? 'bg-blue-100 text-blue-800 border-blue-300' : 'bg-gray-100 text-gray-700 border-gray-300'
                         }`}
                       >
                         {tag.emoji} {tag.name}
@@ -327,18 +277,13 @@ if (customersData) {
             </CardContent>
           </Card>
 
-          <Button
-            onClick={handleSendCampaign}
-            disabled={filteredCustomers.length === 0}
-            size="lg"
-            className="w-full"
-          >
+          <Button onClick={handleSendCampaign} disabled={filteredCustomers.length === 0} size="lg" className="w-full">
             <Send className="w-4 h-4 mr-2" />
             Invia Campagna ({filteredCustomers.length} destinatari)
           </Button>
 
           <p className="text-sm text-gray-500 text-center">
-            I messaggi verranno aperti in WhatsApp Web. Assicurati di avere WhatsApp attivo.
+            I messaggi verranno aperti in WhatsApp Web.
           </p>
         </div>
 
@@ -347,9 +292,8 @@ if (customersData) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Eye className="w-5 h-5" />
-                Anteprima Messaggio
+                Anteprima
               </CardTitle>
-              <CardDescription>Come apparirà su WhatsApp</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
@@ -373,12 +317,6 @@ if (customersData) {
                   </div>
                 </div>
               </div>
-
-              {filteredCustomers.length > 1 && (
-                <p className="text-xs text-gray-500 mt-3 text-center">
-                  Messaggio personalizzato per ogni cliente
-                </p>
-              )}
             </CardContent>
           </Card>
         </div>
