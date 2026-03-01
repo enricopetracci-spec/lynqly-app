@@ -4,9 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Calendar, Users, Briefcase, UserCog, Settings, LogOut, BarChart3, Menu, X, FileText, MessageSquare } from 'lucide-react'
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
+import { Calendar, Users, Briefcase, UserCog, Settings, LogOut, BarChart3, Menu, X, FileText, MessageSquare, TrendingUp } from 'lucide-react'
   const pathname = usePathname()
   const [businessName, setBusinessName] = useState('')
   const [businessId, setBusinessId] = useState<string | null>(null)
@@ -48,6 +46,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+  { name: 'Statistiche', href: '/dashboard/statistics', icon: TrendingUp },
   { name: 'Prenotazioni', href: '/dashboard/bookings', icon: Calendar },
   { name: 'Servizi', href: '/dashboard/services', icon: Briefcase },
   { name: 'Preventivi', href: '/dashboard/quotes', icon: FileText },
