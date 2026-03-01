@@ -51,4 +51,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
     { name: 'Statistiche', href: '/dashboard/statistics', icon: TrendingUp },
     { name: 'Prenotazioni', href: '/dashboard/bookings', icon: Calendar },
-    { name: 'Servizi
+    { name: 'Servizi', href: '/dashboard/services', icon: Briefcase },
