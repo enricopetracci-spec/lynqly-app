@@ -10,7 +10,6 @@ export function PushNotifications() {
   const [supported, setSupported] = useState(false)
 
   useEffect(() => {
-    // Check if browser supports notifications
     if ('Notification' in window) {
       setSupported(true)
       setPermission(Notification.permission)
@@ -28,11 +27,8 @@ export function PushNotifications() {
       setPermission(result)
 
       if (result === 'granted') {
-        // Send test notification
         new Notification('Notifiche Abilitate! 🎉', {
-          body: 'Riceverai notifiche per nuove prenotazioni e aggiornamenti',
-          icon: '/icon-192.png',
-          badge: '/icon-192.png'
+          body: 'Riceverai notifiche per nuove prenotazioni e aggiornamenti'
         })
       }
     } catch (error) {
@@ -49,8 +45,6 @@ export function PushNotifications() {
 
     new Notification('Notifica di Test 🔔', {
       body: 'Questa è una notifica di prova da Lynqly',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
       tag: 'test-notification',
       requireInteraction: false
     })
@@ -66,7 +60,6 @@ export function PushNotifications() {
 
   return (
     <div className="space-y-4">
-      {/* Status */}
       <div className={`p-4 rounded-lg border-2 ${
         permission === 'granted' 
           ? 'bg-green-50 border-green-200' 
@@ -103,7 +96,6 @@ export function PushNotifications() {
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-2">
         {permission !== 'granted' && (
           <Button onClick={requestPermission}>
@@ -120,7 +112,6 @@ export function PushNotifications() {
         )}
       </div>
 
-      {/* Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="text-sm text-blue-900">
           <div className="font-medium mb-2">📬 Riceverai notifiche per:</div>
@@ -149,13 +140,10 @@ export function PushNotifications() {
   )
 }
 
-// Helper function to send notification (use this in other pages)
 export function sendNotification(title: string, body: string, tag?: string) {
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification(title, {
       body,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
       tag: tag || 'lynqly-notification',
       requireInteraction: false
     })
