@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { GeneratePDF } from '@/components/generate-pdf'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FileText, Plus, Search, Eye, Send, CheckCircle, XCircle, Clock, Trash2 } from 'lucide-react'
@@ -40,6 +41,7 @@ export default function QuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [filteredQuotes, setFilteredQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
+  const [businessData, setBusinessData] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -66,11 +68,15 @@ export default function QuotesPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('user_id', session.user.id)
-      .single()
+ const { data: business } = await supabase
+  .from('businesses')
+  .select('*')
+  .eq('user_id', session.user.id)
+  .single()
+
+if (business) {
+  setBusinessData(business)
+}
 
     if (!business) return
 
@@ -682,7 +688,30 @@ export default function QuotesPage() {
                         </Button>
                       </>
                     )}
-
+{businessData && (
+  <GeneratePDF 
+    quote={{
+      quote_number: quote.quote_number,
+      quote_date: quote.issue_date,
+      customer_name: quote.customer?.name || 'N/A',
+      customer_phone: quote.customer?.phone || '',
+      customer_email: quote.customer?.email || '',
+      items: quote.quote_items || [],
+      subtotal: parseFloat(quote.total.toString()),
+      tax: 0,
+      total: parseFloat(quote.total.toString()),
+      notes: '',
+      status: quote.status
+    }}
+    business={{
+      name: businessData.name,
+      email: businessData.email,
+      phone: businessData.phone,
+      address: businessData.address,
+      city: businessData.city
+    }}
+  />
+)}
                     <Button
                       size="sm"
                       variant="outline"
