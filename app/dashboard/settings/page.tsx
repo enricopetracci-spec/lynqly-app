@@ -7,11 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Building2, Link2 as LinkIcon, Tag, Briefcase, Award, Code, Bell, AlertCircle, Phone, MapPin, User } from 'lucide-react'
+import { Building2, Link2 as LinkIcon, Tag, Briefcase, Award, Code, AlertCircle, Phone, MapPin, User } from 'lucide-react'
 import { CustomerTagsManager } from '@/components/customer-tags-manager'
 import { StaffRolesManager, StaffSkillsManager } from '@/components/staff-roles-skills'
 import { WidgetEmbed } from '@/components/widget-embed'
-import { PushNotifications } from '@/components/push-notifications'
+
 
 function generateSlug(text: string) {
   return text
