@@ -1,17 +1,30 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Building2, Link2, Save, Tag, Briefcase, Award, Code, Bell } from 'lucide-react'
+import { Building2, Link2 as LinkIcon, Tag, Briefcase, Award, Code, Bell, AlertCircle, Phone, MapPin, User } from 'lucide-react'
 import { CustomerTagsManager } from '@/components/customer-tags-manager'
 import { StaffRolesManager, StaffSkillsManager } from '@/components/staff-roles-skills'
 import { WidgetEmbed } from '@/components/widget-embed'
 import { PushNotifications } from '@/components/push-notifications'
+
+function generateSlug(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[àáâãäå]/g, 'a')
+    .replace(/[èéêë]/g, 'e')
+    .replace(/[ìíîï]/g, 'i')
+    .replace(/[òóôõö]/g, 'o')
+    .replace(/[ùúûü]/g, 'u')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -130,7 +143,7 @@ export default function SettingsPage() {
     return <div>Caricamento...</div>
   }
 
-  const bookingUrl = typeof window !== 'undefined' ? `${window.location.origin}/${formData.slug}` : ''
+  const bookingUrl = typeof window !== 'undefined' ? `${window.location.origin}/book/${formData.slug}` : ''
 
   return (
     <div className="space-y-6">
@@ -148,7 +161,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Link Pubblico */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -167,7 +179,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Informazioni Attività */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -195,7 +206,7 @@ export default function SettingsPage() {
                 name="business_type"
                 value={formData.business_type}
                 onChange={handleChange}
-                placeholder="Es: Salone di bellezza, Barbiere, Ristorante"
+                placeholder="Es: Salone di bellezza"
               />
             </div>
           </div>
@@ -210,7 +221,7 @@ export default function SettingsPage() {
               placeholder="es: salone-maria"
             />
             <p className="text-sm text-gray-500 mt-1">
-              Questo apparirà nell URL: {typeof window !== 'undefined' ? window.location.origin : ''}/<strong>{formData.slug}</strong>
+              Apparirà come: /book/<strong>{formData.slug}</strong>
             </p>
           </div>
 
@@ -222,14 +233,13 @@ export default function SettingsPage() {
               value={formData.description}
               onChange={handleChange}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Breve descrizione della tua attività..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Breve descrizione..."
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Contatti */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -266,7 +276,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Indirizzo */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -299,7 +308,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Account */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -319,7 +327,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Tag Clienti */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -327,14 +334,14 @@ export default function SettingsPage() {
             Tag Clienti
           </CardTitle>
           <CardDescription>
-            Gestisci i tag di evidenza per le anagrafiche clienti
+            Gestisci i tag per le anagrafiche clienti
           </CardDescription>
         </CardHeader>
         <CardContent>
           <CustomerTagsManager businessId={businessId} />
         </CardContent>
       </Card>
-      {/* Ruoli Staff */}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -350,7 +357,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Competenze Staff */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -365,7 +371,7 @@ export default function SettingsPage() {
           <StaffSkillsManager businessId={businessId} />
         </CardContent>
       </Card>
-      {/* Widget Embed */}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -373,22 +379,7 @@ export default function SettingsPage() {
             Widget Prenotazioni
           </CardTitle>
           <CardDescription>
-            Incorpora il modulo di prenotazione nel tuo sito web
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <WidgetEmbed businessSlug={formData.slug} />
-        </CardContent>
-      </Card>
-{/* Widget Embed */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Code className="w-5 h-5" />
-            Widget Prenotazioni
-          </CardTitle>
-          <CardDescription>
-            Incorpora il modulo di prenotazione nel tuo sito web
+            Incorpora il modulo nel tuo sito web
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -396,7 +387,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Push Notifications */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -404,7 +394,7 @@ export default function SettingsPage() {
             Notifiche Push
           </CardTitle>
           <CardDescription>
-            Ricevi notifiche per prenotazioni e aggiornamenti importanti
+            Ricevi notifiche per prenotazioni e aggiornamenti
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -412,9 +402,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Salva */}
-      <div className="flex justify-end">
-      {/* Salva */}
       <div className="flex justify-end">
         <Button
           onClick={handleSave}
@@ -427,4 +414,3 @@ export default function SettingsPage() {
     </div>
   )
 }
-
