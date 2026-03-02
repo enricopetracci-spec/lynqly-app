@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PushNotifications } from '@/components/push-notifications'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,6 +13,8 @@ import { generateSlug } from '@/lib/utils'
 import { CustomerTagsManager } from '@/components/customer-tags-manager'
 import { StaffRolesManager, StaffSkillsManager } from '@/components/staff-roles-skills'
 import { Briefcase, Award } from 'lucide-react'
+import { ..., Bell } from 'lucide-react'
+import { PushNotifications } from '@/components/push-notifications'
 import { WidgetEmbed } from '@/components/widget-embed'
 import { Code } from 'lucide-react'
 
@@ -383,7 +386,40 @@ export default function SettingsPage() {
           <WidgetEmbed businessSlug={formData.slug} />
         </CardContent>
       </Card>
+{/* Widget Embed */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Code className="w-5 h-5" />
+            Widget Prenotazioni
+          </CardTitle>
+          <CardDescription>
+            Incorpora il modulo di prenotazione nel tuo sito web
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WidgetEmbed businessSlug={formData.slug} />
+        </CardContent>
+      </Card>
 
+      {/* Push Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="w-5 h-5" />
+            Notifiche Push
+          </CardTitle>
+          <CardDescription>
+            Ricevi notifiche per prenotazioni e aggiornamenti importanti
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PushNotifications />
+        </CardContent>
+      </Card>
+
+      {/* Salva */}
+      <div className="flex justify-end">
       {/* Salva */}
       <div className="flex justify-end">
         <Button
