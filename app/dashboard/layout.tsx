@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Calendar, Users, Briefcase, UserCog, Settings, LogOut, BarChart3, Menu, X, FileText, MessageSquare, TrendingUp } from 'lucide-react'
+import { NotificationBell } from '@/components/notification-bell'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -52,6 +53,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="p-6 border-b">
           <div className="font-bold text-xl">Lynqly</div>
           <div className="text-sm text-gray-500">{businessName}</div>
+          <div className="mt-4">
+            <NotificationBell />
+          </div>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {nav.map(item => {
@@ -73,7 +77,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="lg:hidden p-4 bg-white border-b flex items-center justify-between">
-          <div className="font-bold">{businessName || 'Lynqly'}</div>
+          <div className="flex items-center gap-3">
+            <div className="font-bold">{businessName || 'Lynqly'}</div>
+            <NotificationBell />
+          </div>
           <button onClick={() => setSidebarOpen(!sidebarOpen)}>{sidebarOpen ? <X size={24} /> : <Menu size={24} />}</button>
         </header>
 
@@ -81,10 +88,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setSidebarOpen(false)}>
             <div className="w-64 bg-white h-full p-4" onClick={e => e.stopPropagation()}>
               <div className="font-bold mb-4">{businessName}</div>
+              <div className="mb-4">
+                <NotificationBell />
+              </div>
               {nav.map(item => {
                 const Icon = item.icon
                 return <Link key={item.name} href={item.href} onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50"><Icon size={20} /><span>{item.name}</span></Link>
               })}
+              <button onClick={handleLogout} className="mt-4 flex items-center gap-3 px-4 py-3 text-gray-700"><LogOut size={20} /><span>Esci</span></button>
             </div>
           </div>
         )}
