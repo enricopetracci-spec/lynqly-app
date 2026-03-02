@@ -32,39 +32,59 @@ export default function BookingsPage() {
   }, [])
 
   const loadBookings = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
 
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('user_id', session.user.id)
-      .single()
+  const { data: business } = await supabase
+    .from('businesses')
+    .select('id')
+    .eq('user_id', session.user.id)
+    .single()
 
-    if (!business) return
+  if (!business) return
 
-    const { data: bookingsData } = await supabase
-      .from('bookings')
-      .select(`
-        id,
-        booking_date,
-        booking_time,
-        status,
-        notes,
-        customer:customers(name, phone),
-        service:services(name, price)
-      `)
-      .eq('business_id', business.id)
-      .order('booking_date', { ascending: false })
-      .order('booking_time', { ascending: false })
+  // Load bookings
+  const { data: bookingsData, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('business_id', business.id)
+    .order('booking_date', { ascending: false })
 
-    if (bookingsData) {
-      setBookings(bookingsData as any)
-    }
-
+  if (error) {
+    console.error('Bookings error:', error)
     setLoading(false)
+    return
   }
 
+  if (bookingsData) {
+    // Load customer and service data separately
+    for (const booking of bookingsData) {
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('name, phone')
+        .eq('id', booking.customer_id)
+        .single()
+      
+      booking.customer = customer || { name: 'N/A', phone: 'N/A' }
+
+      if (booking.service_id) {
+        const { data: service } = await supabase
+          .from('services')
+          .select('name, price')
+          .eq('id', booking.service_id)
+          .single()
+        
+        booking.service = service
+      } else {
+        booking.service = null
+      }
+    }
+    
+    setBookings(bookingsData as any)
+  }
+
+  setLoading(false)
+}
   const updateStatus = async (bookingId: string, newStatus: string) => {
     await supabase
       .from('bookings')
