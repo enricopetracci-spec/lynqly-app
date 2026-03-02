@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Bell, X, Calendar, FileText, CheckCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Bell, X, Calendar, FileText } from 'lucide-react'
 
 type Notification = {
   id: string
@@ -23,7 +21,6 @@ export function NotificationBell() {
 
   useEffect(() => {
     loadNotifications()
-    // Poll for new notifications every 30 seconds
     const interval = setInterval(loadNotifications, 30000)
     return () => clearInterval(interval)
   }, [])
@@ -40,21 +37,22 @@ export function NotificationBell() {
 
     if (!business) return
 
-    // Get recent bookings (last 7 days)
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
+    // Load bookings
     const { data: bookings } = await supabase
       .from('bookings')
-      .select('id, booking_date, booking_time, created_at, customer:customers(name)')
+      .select('id, booking_date, booking_time, created_at, customer_id')
       .eq('business_id', business.id)
       .gte('created_at', sevenDaysAgo.toISOString())
       .order('created_at', { ascending: false })
       .limit(10)
 
+    // Load quotes
     const { data: quotes } = await supabase
       .from('quotes')
-      .select('id, quote_number, status, created_at, customer:customers(name)')
+      .select('id, quote_number, status, created_at, customer_id')
       .eq('business_id', business.id)
       .gte('created_at', sevenDaysAgo.toISOString())
       .in('status', ['accepted', 'rejected'])
@@ -63,50 +61,70 @@ export function NotificationBell() {
 
     const notifs: Notification[] = []
 
-    // Add booking notifications
-    if (bookings) {
-      bookings.forEach(booking => {
+    // Load customer names for bookings
+    if (bookings && bookings.length > 0) {
+      for (const booking of bookings) {
+        let customerName = 'Cliente'
+        if (booking.customer_id) {
+          const { data: customer } = await supabase
+            .from('customers')
+            .select('name')
+            .eq('id', booking.customer_id)
+            .single()
+          if (customer) customerName = customer.name
+        }
+
         notifs.push({
           id: `booking-${booking.id}`,
           type: 'booking',
           title: '📅 Nuova Prenotazione',
-          message: `${booking.customer?.name || 'Cliente'} - ${new Date(booking.booking_date).toLocaleDateString('it-IT')} ${booking.booking_time}`,
+          message: `${customerName} - ${new Date(booking.booking_date).toLocaleDateString('it-IT')} ${booking.booking_time}`,
           created_at: booking.created_at,
           read: isNotificationRead(`booking-${booking.id}`),
           link: '/dashboard/bookings'
         })
-      })
+      }
     }
 
-    // Add quote notifications
-    if (quotes) {
-      quotes.forEach(quote => {
+    // Load customer names for quotes
+    if (quotes && quotes.length > 0) {
+      for (const quote of quotes) {
+        let customerName = 'Cliente'
+        if (quote.customer_id) {
+          const { data: customer } = await supabase
+            .from('customers')
+            .select('name')
+            .eq('id', quote.customer_id)
+            .single()
+          if (customer) customerName = customer.name
+        }
+
         const statusText = quote.status === 'accepted' ? '✅ Accettato' : '❌ Rifiutato'
         notifs.push({
           id: `quote-${quote.id}`,
           type: 'quote',
           title: `Preventivo ${statusText}`,
-          message: `${quote.quote_number} - ${quote.customer?.name || 'Cliente'}`,
+          message: `${quote.quote_number} - ${customerName}`,
           created_at: quote.created_at,
           read: isNotificationRead(`quote-${quote.id}`),
           link: '/dashboard/quotes'
         })
-      })
+      }
     }
 
-    // Sort by date
     notifs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
     setNotifications(notifs)
     setUnreadCount(notifs.filter(n => !n.read).length)
   }
 
   const isNotificationRead = (id: string) => {
+    if (typeof window === 'undefined') return false
     const readNotifs = JSON.parse(localStorage.getItem('readNotifications') || '[]')
     return readNotifs.includes(id)
   }
 
   const markAsRead = (id: string) => {
+    if (typeof window === 'undefined') return
     const readNotifs = JSON.parse(localStorage.getItem('readNotifications') || '[]')
     if (!readNotifs.includes(id)) {
       readNotifs.push(id)
@@ -117,6 +135,7 @@ export function NotificationBell() {
   }
 
   const markAllAsRead = () => {
+    if (typeof window === 'undefined') return
     const allIds = notifications.map(n => n.id)
     localStorage.setItem('readNotifications', JSON.stringify(allIds))
     setNotifications(prev => prev.map(n => ({...n, read: true})))
