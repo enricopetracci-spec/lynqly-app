@@ -1,23 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PushNotifications } from '@/components/push-notifications'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Building2, Link as LinkIcon, User, Mail, Phone, MapPin, AlertCircle, Tag } from 'lucide-react'
-import { generateSlug } from '@/lib/utils'
+import { Textarea } from '@/components/ui/textarea'
+import { Building2, Link2, Save, Tag, Briefcase, Award, Code, Bell } from 'lucide-react'
 import { CustomerTagsManager } from '@/components/customer-tags-manager'
 import { StaffRolesManager, StaffSkillsManager } from '@/components/staff-roles-skills'
-import { Briefcase, Award } from 'lucide-react'
-import { ..., Bell } from 'lucide-react'
-import { PushNotifications } from '@/components/push-notifications'
 import { WidgetEmbed } from '@/components/widget-embed'
-import { Code } from 'lucide-react'
-
+import { PushNotifications } from '@/components/push-notifications'
 export default function SettingsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
