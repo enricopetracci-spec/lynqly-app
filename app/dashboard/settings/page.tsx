@@ -12,7 +12,6 @@ import { CustomerTagsManager } from '@/components/customer-tags-manager'
 import { StaffRolesManager, StaffSkillsManager } from '@/components/staff-roles-skills'
 import { WidgetEmbed } from '@/components/widget-embed'
 
-
 function generateSlug(text: string) {
   return text
     .toLowerCase()
@@ -384,21 +383,6 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <WidgetEmbed businessSlug={formData.slug} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="w-5 h-5" />
-            Notifiche Push
-          </CardTitle>
-          <CardDescription>
-            Ricevi notifiche per prenotazioni e aggiornamenti
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PushNotifications />
         </CardContent>
       </Card>
 
