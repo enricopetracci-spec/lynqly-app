@@ -48,8 +48,57 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-gray-600">Caricamento...</div></div>
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <aside className="hidden lg:flex w-64 flex-col bg-white border-r">
+    <>
+      {/* MOBILE HEADER */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b h-16 flex items-center justify-between px-4">
+        <div className="flex items-center gap-3">
+          <span className="font-bold">{businessName || 'Lynqly'}</span>
+          <NotificationBell />
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      {/* MOBILE SIDEBAR OVERLAY */}
+      {sidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setSidebarOpen(false)}>
+          <div className="w-64 bg-white h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b">
+              <div className="font-bold text-lg">{businessName}</div>
+              <div className="mt-3">
+                <NotificationBell />
+              </div>
+            </div>
+            <nav className="p-2">
+              {nav.map(item => {
+                const Icon = item.icon
+                const active = pathname === item.href
+                return (
+                  <Link 
+                    key={item.name} 
+                    href={item.href} 
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 ${active ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <Icon size={20} />
+                    <span className="font-medium">{item.name}</span>
+                  </Link>
+                )
+              })}
+            </nav>
+            <div className="p-4 border-t">
+              <button onClick={handleLogout} className="flex items-center gap-3 text-gray-700 w-full px-4 py-3 hover:bg-gray-50 rounded-lg">
+                <LogOut size={20} />
+                <span>Esci</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DESKTOP SIDEBAR */}
+      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 flex-col bg-white border-r z-30">
         <div className="p-6 border-b">
           <div className="font-bold text-xl">Lynqly</div>
           <div className="text-sm text-gray-500">{businessName}</div>
@@ -57,51 +106,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <NotificationBell />
           </div>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-4">
           {nav.map(item => {
             const Icon = item.icon
             const active = pathname === item.href
             return (
-              <Link key={item.name} href={item.href} className={`flex items-center gap-3 px-4 py-3 rounded-lg ${active ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}>
+              <Link 
+                key={item.name} 
+                href={item.href} 
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 ${active ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
                 <Icon size={20} />
                 <span className="font-medium">{item.name}</span>
               </Link>
             )
           })}
         </nav>
-        <button onClick={handleLogout} className="m-4 p-3 flex items-center gap-3 text-gray-700 hover:bg-gray-50 rounded-lg">
-          <LogOut size={20} />
-          <span>Esci</span>
-        </button>
+        <div className="p-4 border-t">
+          <button onClick={handleLogout} className="flex items-center gap-3 text-gray-700 w-full px-4 py-3 hover:bg-gray-50 rounded-lg">
+            <LogOut size={20} />
+            <span>Esci</span>
+          </button>
+        </div>
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="lg:hidden p-4 bg-white border-b flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="font-bold">{businessName || 'Lynqly'}</div>
-            <NotificationBell />
-          </div>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)}>{sidebarOpen ? <X size={24} /> : <Menu size={24} />}</button>
-        </header>
-
-        {sidebarOpen && (
-          <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setSidebarOpen(false)}>
-            <div className="w-64 bg-white h-full p-4" onClick={e => e.stopPropagation()}>
-              <div className="font-bold mb-4">{businessName}</div>
-              <div className="mb-4">
-                <NotificationBell />
-              </div>
-              {nav.map(item => {
-                const Icon = item.icon
-                return <Link key={item.name} href={item.href} onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50"><Icon size={20} /><span>{item.name}</span></Link>
-              })}
-              <button onClick={handleLogout} className="mt-4 flex items-center gap-3 px-4 py-3 text-gray-700"><LogOut size={20} /><span>Esci</span></button>
-            </div>
-          </div>
-        )}
-
-        <main className="flex-1 overflow-auto p-8">{children}</main>
-      </div>
-    </div>
+      {/* MAIN CONTENT */}
+      <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
+        <div className="p-4 sm:p-6 lg:p-8">
+          {children}
+        </div>
+      </main>
+    </>
   )
 }
+
