@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Calendar, Users, Briefcase, UserCog, Settings, LogOut, BarChart3, Menu, X, FileText, MessageSquare, TrendingUp } from 'lucide-react'
 import { NotificationBell } from '@/components/notification-bell'
 import { PWAInstallPrompt } from '@/components/pwa-install'
+import { RegisterServiceWorker } from '@/components/register-sw'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -138,6 +139,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </main>
    <PWAInstallPrompt />
+      <PWAInstallPrompt />
+<RegisterServiceWorker />
     </>
   )
 }
