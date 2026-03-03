@@ -1,0 +1,10 @@
+{
+  "name": "Lynqly - Gestione Attività",
+  "short_name": "Lynqly",
+  "description": "Sistema completo per gestire prenotazioni, clienti e preventivi",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait-primary"
+}
