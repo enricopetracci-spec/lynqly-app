@@ -96,6 +96,11 @@ export default function LoginPage() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Accesso in corso...' : 'Accedi'}
               </Button>
+              <div className="text-center mt-4">
+  <Link href="/auth/forgot-password" className="text-sm text-blue-600 hover:underline">
+    Password dimenticata?
+  </Link>
+</div>
 
               <div className="text-center text-sm text-gray-600">
                 Non hai un account?{' '}
