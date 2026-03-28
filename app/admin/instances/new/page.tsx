@@ -65,49 +65,31 @@ export default function NewInstancePage() {
     setLoading(true)
 
     try {
-      // 1. Crea utente Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.ownerEmail,
-        password: formData.ownerPassword,
-        email_confirm: true
+      // Get current session token
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Sessione non valida')
+
+      // Call API route
+      const response = await fetch('/api/admin/create-instance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          businessName: formData.businessName,
+          businessType: formData.businessType,
+          ownerEmail: formData.ownerEmail,
+          ownerPassword: formData.ownerPassword,
+          selectedFeatures
+        })
       })
 
-      if (authError) throw authError
+      const data = await response.json()
 
-      // 2. Crea slug
-      const slug = formData.businessName
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-
-      // 3. Crea business
-      const { data: business, error: businessError } = await supabase
-        .from('businesses')
-        .insert({
-          user_id: authData.user.id,
-          name: formData.businessName,
-          slug: slug,
-          business_type: formData.businessType
-        })
-        .select()
-        .single()
-
-      if (businessError) throw businessError
-
-      // 4. Attiva features selezionate
-      const featuresToInsert = selectedFeatures.map(featureId => ({
-        business_id: business.id,
-        feature_id: featureId,
-        enabled: true
-      }))
-
-      const { error: featuresError } = await supabase
-        .from('business_enabled_features')
-        .insert(featuresToInsert)
-
-      if (featuresError) throw featuresError
+      if (!response.ok) {
+        throw new Error(data.error || 'Errore durante la creazione')
+      }
 
       alert('✅ Istanza creata con successo!')
       router.push('/admin')
