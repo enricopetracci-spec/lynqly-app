@@ -3,17 +3,29 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
+    // Debug: vedi cosa arriva
+    console.log('ENV CHECK:', {
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 20),
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      serviceKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length,
+      allEnvKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+    })
+
     // Verifica variabili ambiente
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error('Missing env vars:', { 
-        hasUrl: !!supabaseUrl, 
-        hasKey: !!serviceRoleKey 
-      })
+    if (!supabaseUrl) {
       return NextResponse.json({ 
-        error: 'Configurazione server non valida' 
+        error: 'NEXT_PUBLIC_SUPABASE_URL mancante',
+        debug: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+      }, { status: 500 })
+    }
+
+    if (!serviceRoleKey) {
+      return NextResponse.json({ 
+        error: 'SUPABASE_SERVICE_ROLE_KEY mancante',
+        debug: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
       }, { status: 500 })
     }
 
