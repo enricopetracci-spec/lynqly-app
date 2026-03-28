@@ -10,12 +10,15 @@ import { useIsAdmin } from '@/hooks/use-is-admin'
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { isAdmin, loading } = useIsAdmin(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Skip auth check if on login page
+  const isLoginPage = pathname === '/admin/login'
+  const { isAdmin, loading } = useIsAdmin(!isLoginPage) // Only redirect if NOT on login page
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/')
+    router.push('/admin/login')
   }
 
   const nav = [
@@ -23,6 +26,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Istanze Business', href: '/admin/instances', icon: Building2 },
     { name: 'Super Admin', href: '/admin/settings', icon: Settings }
   ]
+
+  // If on login page, render children directly
+  if (isLoginPage) {
+    return <>{children}</>
+  }
 
   if (loading) {
     return (
@@ -37,7 +45,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-2">Accesso Negato</h1>
-          <p className="text-gray-600">Non hai i permessi per accedere a questa sezione.</p>
+          <p className="text-gray-600 mb-4">Non hai i permessi per accedere a questa sezione.</p>
+          <Link href="/admin/login" className="text-red-600 hover:text-red-700 font-medium">
+            Vai al Login Admin
+          </Link>
         </div>
       </div>
     )
