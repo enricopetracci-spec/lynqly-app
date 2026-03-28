@@ -7,6 +7,7 @@ import { Calendar, Users, Briefcase, UserCog, Settings, LogOut, BarChart3, Menu,
 import { NotificationBell } from '@/components/notification-bell'
 import { PWAInstallPrompt } from '@/components/pwa-install'
 import { RegisterServiceWorker } from '@/components/register-sw'
+import { useBusinessFeatures } from '@/hooks/use-business-features'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -14,6 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [businessName, setBusinessName] = useState('')
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { hasFeature, loading: featuresLoading } = useBusinessFeatures()
 
   useEffect(() => {
     checkAuth()
@@ -35,17 +37,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/')
   }
 
-  const nav = [
-    { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
-    { name: 'Statistiche', href: '/dashboard/statistics', icon: TrendingUp },
-    { name: 'Prenotazioni', href: '/dashboard/bookings', icon: Calendar },
-    { name: 'Servizi', href: '/dashboard/services', icon: Briefcase },
-    { name: 'Preventivi', href: '/dashboard/quotes', icon: FileText },
-    { name: 'Campagne', href: '/dashboard/campaigns', icon: MessageSquare },
-    { name: 'Clienti', href: '/dashboard/clients', icon: Users },
-    { name: 'Staff', href: '/dashboard/staff', icon: UserCog },
-    { name: 'Impostazioni', href: '/dashboard/settings', icon: Settings }
+  const allNav = [
+    { name: 'Dashboard', href: '/dashboard', icon: BarChart3, feature: 'dashboard' },
+    { name: 'Statistiche', href: '/dashboard/statistics', icon: TrendingUp, feature: 'statistics' },
+    { name: 'Prenotazioni', href: '/dashboard/bookings', icon: Calendar, feature: 'bookings' },
+    { name: 'Servizi', href: '/dashboard/services', icon: Briefcase, feature: 'services' },
+    { name: 'Preventivi', href: '/dashboard/quotes', icon: FileText, feature: 'quotes' },
+    { name: 'Campagne', href: '/dashboard/campaigns', icon: MessageSquare, feature: 'campaigns' },
+    { name: 'Clienti', href: '/dashboard/clients', icon: Users, feature: 'clients' },
+    { name: 'Staff', href: '/dashboard/staff', icon: UserCog, feature: 'staff' },
+    { name: 'Impostazioni', href: '/dashboard/settings', icon: Settings, feature: 'settings' }
   ]
+
+  // Filter nav based on enabled features
+  const nav = featuresLoading ? allNav : allNav.filter(item => hasFeature(item.feature))
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-gray-600">Caricamento...</div></div>
 
@@ -138,9 +143,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </div>
       </main>
-   <PWAInstallPrompt />
+
       <PWAInstallPrompt />
-<RegisterServiceWorker />
+      <RegisterServiceWorker />
     </>
   )
 }
+
