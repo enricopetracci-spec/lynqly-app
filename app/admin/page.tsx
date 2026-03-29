@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Users, Calendar, TrendingUp, AlertCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Building2, Users, Calendar, TrendingUp, Trash2, LogIn } from 'lucide-react'
 import Link from 'next/link'
 
 type BusinessStats = {
@@ -23,8 +25,10 @@ type BusinessStats = {
 }
 
 export default function AdminDashboard() {
+  const router = useRouter()
   const [businesses, setBusinesses] = useState<BusinessStats[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   useEffect(() => {
     loadStats()
@@ -41,6 +45,87 @@ export default function AdminDashboard() {
     setLoading(false)
   }
 
+  const handleDelete = async (businessId: string, businessName: string) => {
+    if (!confirm(`⚠️ ATTENZIONE!\n\nStai per eliminare "${businessName}" e TUTTI i suoi dati:\n\n• Account utente\n• Prenotazioni\n• Clienti\n• Preventivi\n• Staff\n• Tutti i dati correlati\n\nQuesta azione è IRREVERSIBILE!\n\nSei sicuro?`)) {
+      return
+    }
+
+    setDeleting(businessId)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Sessione non valida')
+
+      const response = await fetch('/api/admin/delete-instance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ businessId })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Errore durante eliminazione')
+      }
+
+      alert('✅ Istanza eliminata con successo!')
+      loadStats()
+
+    } catch (error: any) {
+      console.error(error)
+      alert('❌ Errore: ' + error.message)
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const handleImpersonate = async (businessId: string) => {
+    try {
+      const { data: business } = await supabase
+        .from('businesses')
+        .select('user_id, name')
+        .eq('id', businessId)
+        .single()
+
+      if (!business) throw new Error('Business non trovato')
+
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        sessionStorage.setItem('admin_return_token', session.access_token)
+        sessionStorage.setItem('impersonating', business.name)
+      }
+
+      const response = await fetch('/api/admin/impersonate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ userId: business.user_id })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Errore impersonazione')
+      }
+
+      await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token
+      })
+
+      router.push('/dashboard')
+
+    } catch (error: any) {
+      console.error(error)
+      alert('❌ Errore: ' + error.message)
+    }
+  }
+
   const totalBusinesses = businesses.length
   const totalBookings = businesses.reduce((sum, b) => sum + (b.total_bookings || 0), 0)
   const totalCustomers = businesses.reduce((sum, b) => sum + (b.total_customers || 0), 0)
@@ -52,7 +137,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>
@@ -66,7 +150,6 @@ export default function AdminDashboard() {
         </Link>
       </div>
 
-      {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -113,7 +196,6 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* BUSINESS LIST */}
       <Card>
         <CardHeader>
           <CardTitle>Istanze Business</CardTitle>
@@ -166,13 +248,38 @@ export default function AdminDashboard() {
                         <span className="text-sm font-medium text-gray-900">{business.active_features_count || 0}</span>
                         <span className="text-xs text-gray-500">/9</span>
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        <Link
-                          href={`/admin/instances/${business.id}`}
-                          className="text-red-600 hover:text-red-700 text-sm font-medium"
-                        >
-                          Gestisci
-                        </Link>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <Link
+                            href={`/admin/instances/${business.id}`}
+                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          >
+                            Gestisci
+                          </Link>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleImpersonate(business.id)}
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            title="Accedi come questo utente"
+                          >
+                            <LogIn className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDelete(business.id, business.name)}
+                            disabled={deleting === business.id}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Elimina istanza"
+                          >
+                            {deleting === business.id ? (
+                              <span className="text-xs">...</span>
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
