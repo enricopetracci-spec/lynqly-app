@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Rocket, Mail, Phone, Building2, MessageSquare } from 'lucide-react'
 
 export default function DemoRequestPage() {
@@ -166,12 +165,11 @@ export default function DemoRequestPage() {
                 <MessageSquare className="w-4 h-4" />
                 Messaggio (opzionale)
               </Label>
-              <Textarea
+              <Input
                 id="message"
                 value={formData.message}
                 onChange={(e) => setFormData({...formData, message: e.target.value})}
                 placeholder="Raccontaci delle tue esigenze..."
-                rows={4}
               />
             </div>
 
