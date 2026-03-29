@@ -8,6 +8,7 @@ import { NotificationBell } from '@/components/notification-bell'
 import { PWAInstallPrompt } from '@/components/pwa-install'
 import { RegisterServiceWorker } from '@/components/register-sw'
 import { useBusinessFeatures } from '@/hooks/use-business-features'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -56,6 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <>
+     <ImpersonationBanner />
       {/* MOBILE HEADER */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b h-16 flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
