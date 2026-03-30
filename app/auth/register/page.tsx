@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,15 @@ export default function DemoRequestPage() {
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
+  const [verified, setVerified] = useState(false)
+
+  useEffect(() => {
+    // Check for verification success
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('verified') === 'true') {
+      setVerified(true)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,6 +54,44 @@ export default function DemoRequestPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (verified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Mail className="w-8 h-8 text-green-600" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-green-600">
+              Email Verificata! ✅
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-gray-700 font-medium">
+              La tua richiesta è stata confermata!
+            </p>
+            <p className="text-gray-600">
+              Il nostro team ti ricontatterà entro <strong>24 ore</strong> per attivare il tuo account Lynqly.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+              <p className="text-sm text-gray-700">
+                <strong>Prossimi passi:</strong>
+              </p>
+              <ul className="text-xs text-gray-600 mt-2 space-y-1 list-disc list-inside">
+                <li>Riceverai le credenziali via email</li>
+                <li>Potrai accedere subito alla piattaforma</li>
+                <li>30 giorni di prova gratuita completa</li>
+              </ul>
+            </div>
+            <p className="text-sm text-gray-500 pt-4">
+              Hai domande? Rispondi all'email che ti abbiamo inviato!
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (submitted) {
@@ -192,3 +239,4 @@ export default function DemoRequestPage() {
     </div>
   )
 }
+
