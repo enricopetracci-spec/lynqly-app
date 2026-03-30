@@ -4,17 +4,26 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { LayoutDashboard, Building2, Users, Settings, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Building2, Settings, LogOut, Menu, X, Mail } from 'lucide-react'
 import { useIsAdmin } from '@/hooks/use-is-admin'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+
+  // Check if on login page FIRST - before any auth checks
+  if (pathname === '/admin/login') {
+    return <>{children}</>
+  }
+
+  // For all other admin pages, use the protected layout
+  return <ProtectedAdminLayout>{children}</ProtectedAdminLayout>
+}
+
+function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  // Skip auth check if on login page
-  const isLoginPage = pathname === '/admin/login'
-  const { isAdmin, loading } = useIsAdmin(!isLoginPage) // Only redirect if NOT on login page
+  const { isAdmin, loading } = useIsAdmin(true)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -23,14 +32,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const nav = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-    { name: 'Istanze Business', href: '/admin/instances', icon: Building2 },
-    { name: 'Super Admin', href: '/admin/settings', icon: Settings }
+    { name: 'Richieste Demo', href: '/admin/demo-requests', icon: Mail, badge: true }
   ]
-
-  // If on login page, render children directly
-  if (isLoginPage) {
-    return <>{children}</>
-  }
 
   if (loading) {
     return (
