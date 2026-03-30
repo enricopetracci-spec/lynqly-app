@@ -3,6 +3,51 @@
 import Link from 'next/link'
 import { Calendar, Users, BarChart3, MessageSquare, Zap, Shield, ArrowRight, Check } from 'lucide-react'
 
+const features = [
+  {
+    icon: Calendar,
+    title: 'Gestione Prenotazioni',
+    description: 'Sistema completo per prenotazioni online e offline. Calendario intuitivo e notifiche automatiche.',
+    bgColor: 'bg-blue-100',
+    iconColor: 'text-blue-600'
+  },
+  {
+    icon: Users,
+    title: 'Anagrafica Clienti',
+    description: 'Database clienti con storico completo, tag personalizzati e segmentazione avanzata.',
+    bgColor: 'bg-green-100',
+    iconColor: 'text-green-600'
+  },
+  {
+    icon: BarChart3,
+    title: 'Statistiche Real-time',
+    description: 'Dashboard con KPI aggiornati in tempo reale. Monitora le performance del tuo business.',
+    bgColor: 'bg-blue-100',
+    iconColor: 'text-blue-600'
+  },
+  {
+    icon: MessageSquare,
+    title: 'Campagne WhatsApp',
+    description: 'Invia messaggi promozionali ai tuoi clienti con template personalizzabili.',
+    bgColor: 'bg-green-100',
+    iconColor: 'text-green-600'
+  },
+  {
+    icon: Zap,
+    title: 'Preventivi Automatici',
+    description: 'Genera preventivi professionali in PDF con un click. Traccia accettazioni e pagamenti.',
+    bgColor: 'bg-yellow-100',
+    iconColor: 'text-yellow-600'
+  },
+  {
+    icon: Shield,
+    title: 'Sicuro e Affidabile',
+    description: 'Dati crittografati, backup automatici e conformità GDPR garantita.',
+    bgColor: 'bg-red-100',
+    iconColor: 'text-red-600'
+  }
+]
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
@@ -95,64 +140,13 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Calendar,
-                title: 'Gestione Prenotazioni',
-                description: 'Sistema completo per prenotazioni online e offline. Calendario intuitivo e notifiche automatiche.',
-                color: 'blue'
-              },
-              {
-                icon: Users,
-                title: 'Anagrafica Clienti',
-                description: 'Database clienti con storico completo, tag personalizzati e segmentazione avanzata.',
-                color: 'green'
-              },
-              {
-                icon: BarChart3,
-                title: 'Statistiche Real-time',
-                description: 'Dashboard con KPI aggiornati in tempo reale. Monitora le performance del tuo business.',
-                color: 'blue'
-              },
-              {
-                icon: MessageSquare,
-                title: 'Campagne WhatsApp',
-                description: 'Invia messaggi promozionali ai tuoi clienti con template personalizzabili.',
-                color: 'green'
-              },
-              {
-                icon: Zap,
-                title: 'Preventivi Automatici',
-                description: 'Genera preventivi professionali in PDF con un click. Traccia accettazioni e pagamenti.',
-                color: 'yellow'
-              },
-              {
-                icon: Shield,
-                title: 'Sicuro e Affidabile',
-                description: 'Dati crittografati, backup automatici e conformità GDPR garantita.',
-                color: 'red'
-              }
-            ].map((feature, i) => {
-              const iconBgClass = 
-                feature.color === 'blue' ? 'bg-blue-100' :
-                feature.color === 'green' ? 'bg-green-100' :
-                feature.color === 'yellow' ? 'bg-yellow-100' :
-                'bg-red-100'
-              
-              const iconColorClass = 
-                feature.color === 'blue' ? 'text-blue-600' :
-                feature.color === 'green' ? 'text-green-600' :
-                feature.color === 'yellow' ? 'text-yellow-600' :
-                'text-red-600'
-
-              return (
+            {features.map((feature, i) => (
               <div 
                 key={i}
                 className="p-6 rounded-2xl border-2 border-gray-100 hover:border-blue-200 hover:shadow-xl transition group"
               >
-                <div className={`w-12 h-12 rounded-xl ${iconBgClass} flex items-center justify-center mb-4 group-hover:scale-110 transition`}>
-                  <feature.icon className={`w-6 h-6 ${iconColorClass}`} />
-                </div>
+                <div className={`w-12 h-12 rounded-xl ${feature.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition`}>
+                  <feature.icon className={`w-6 h-6 ${feature.iconColor}`} />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
                   {feature.title}
@@ -161,8 +155,7 @@ export default function LandingPage() {
                   {feature.description}
                 </p>
               </div>
-              )
-            })}
+            ))}
           </div>
         </div>
       </section>
