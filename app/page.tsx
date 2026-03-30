@@ -132,13 +132,27 @@ export default function LandingPage() {
                 description: 'Dati crittografati, backup automatici e conformità GDPR garantita.',
                 color: 'red'
               }
-            ].map((feature, i) => (
+            ].map((feature, i) => {
+              const iconBgClass = 
+                feature.color === 'blue' ? 'bg-blue-100' :
+                feature.color === 'green' ? 'bg-green-100' :
+                feature.color === 'yellow' ? 'bg-yellow-100' :
+                'bg-red-100'
+              
+              const iconColorClass = 
+                feature.color === 'blue' ? 'text-blue-600' :
+                feature.color === 'green' ? 'text-green-600' :
+                feature.color === 'yellow' ? 'text-yellow-600' :
+                'text-red-600'
+
+              return (
               <div 
                 key={i}
                 className="p-6 rounded-2xl border-2 border-gray-100 hover:border-blue-200 hover:shadow-xl transition group"
               >
-                <div className={`w-12 h-12 rounded-xl bg-${feature.color}-100 flex items-center justify-center mb-4 group-hover:scale-110 transition`}>
-                  <feature.icon className={`w-6 h-6 text-${feature.color}-600`} />
+                <div className={`w-12 h-12 rounded-xl ${iconBgClass} flex items-center justify-center mb-4 group-hover:scale-110 transition`}>
+                  <feature.icon className={`w-6 h-6 ${iconColorClass}`} />
+                </div>
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
                   {feature.title}
@@ -147,7 +161,8 @@ export default function LandingPage() {
                   {feature.description}
                 </p>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
