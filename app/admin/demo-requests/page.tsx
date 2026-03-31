@@ -50,10 +50,30 @@ export default function AdminDemoRequests() {
 
     if (error) {
       alert('Errore: ' + error.message)
-    } else {
-      alert('✅ Richiesta approvata!\n\nRicordati di creare l\'istanza manualmente.')
-      loadRequests()
+      return
     }
+
+    // Send approval email
+    try {
+      const response = await fetch('/api/admin/approve-demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: request.name,
+          email: request.email,
+          business_type: request.business_type
+        })
+      })
+
+      if (!response.ok) {
+        console.error('Email send failed')
+      }
+    } catch (e) {
+      console.error('Email error:', e)
+    }
+
+    alert('✅ Richiesta approvata!\n\n📧 Email di conferma inviata al cliente.\n\nRicordati di creare l\'istanza manualmente.')
+    loadRequests()
   }
 
   const handleReject = async (id: string) => {
