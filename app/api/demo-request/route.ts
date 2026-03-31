@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
                 <p><strong>Tipo attività:</strong> ${business_type}</p>
                 <p><strong>Messaggio:</strong> ${message || 'Nessun messaggio'}</p>
               </div>
-              <a href="https://lynqly-app.vercel.app/admin" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 10px;">Vai al Pannello Admin</a>
+              <a href="https://lynqly-app.vercel.app/admin/demo-requests" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 10px;">Gestisci Richieste Demo</a>
             </body>
             </html>
           `
