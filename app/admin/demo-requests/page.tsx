@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Mail, Phone, Building2, Check, X, Clock } from 'lucide-react'
+import { Mail, Phone, Building2, Check, X, Clock, Trash2 } from 'lucide-react'
 
 type DemoRequest = {
   id: string
@@ -113,6 +113,22 @@ export default function AdminDemoRequests() {
     }
   }
 
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Eliminare richiesta di ${name}?\n\nQuesta azione è irreversibile!`)) return
+
+    const { error } = await supabase
+      .from('demo_requests')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      alert('Errore: ' + error.message)
+    } else {
+      alert('✅ Richiesta eliminata!')
+      loadRequests()
+    }
+  }
+
   const handleReject = async (id: string) => {
     if (!confirm('Rifiutare questa richiesta?')) return
 
@@ -202,15 +218,24 @@ export default function AdminDemoRequests() {
                         </span>
                       )}
                     </CardTitle>
-                    <p className="text-sm text-gray-500 mt-1">
-                      <Clock className="w-3 h-3 inline mr-1" />
-                      {new Date(request.created_at).toLocaleDateString('it-IT', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                    <p className="text-sm text-gray-500 mt-1 flex items-center justify-between">
+                      <span>
+                        <Clock className="w-3 h-3 inline mr-1" />
+                        {new Date(request.created_at).toLocaleDateString('it-IT', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                      <button
+                        onClick={() => handleDelete(request.id, request.name)}
+                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                        title="Elimina richiesta"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </p>
                   </div>
                   {request.status === 'pending' && request.email_verified && (
