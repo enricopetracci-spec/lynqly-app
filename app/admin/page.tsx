@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Building2, Users, Calendar, TrendingUp, Trash2, LogIn } from 'lucide-react'
+import { Building2, Users, Calendar, TrendingUp, Trash2, LogIn, Mail } from 'lucide-react'
 import Link from 'next/link'
 
 type BusinessStats = {
@@ -29,10 +29,22 @@ export default function AdminDashboard() {
   const [businesses, setBusinesses] = useState<BusinessStats[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [pendingRequests, setPendingRequests] = useState(0)
 
   useEffect(() => {
     loadStats()
+    loadPendingRequests()
   }, [])
+
+  const loadPendingRequests = async () => {
+    const { count } = await supabase
+      .from('demo_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .eq('email_verified', true)
+
+    setPendingRequests(count || 0)
+  }
 
   const loadStats = async () => {
     const { data } = await supabase
@@ -84,13 +96,21 @@ export default function AdminDashboard() {
 
   const handleImpersonate = async (businessId: string) => {
     try {
-      const { data: business } = await supabase
+      const { data: business, error: businessError } = await supabase
         .from('businesses')
         .select('user_id, name')
         .eq('id', businessId)
         .single()
 
-      if (!business) throw new Error('Business non trovato')
+      console.log('Business query:', { business, businessError })
+
+      if (businessError || !business) {
+        throw new Error('Business non trovato in DB: ' + (businessError?.message || 'no data'))
+      }
+
+      if (!business.user_id) {
+        throw new Error('Business senza user_id. Istanza non creata correttamente.')
+      }
 
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
@@ -109,8 +129,10 @@ export default function AdminDashboard() {
 
       const data = await response.json()
 
+      console.log('Impersonate API:', data)
+
       if (!response.ok) {
-        throw new Error(data.error || 'Errore impersonazione')
+        throw new Error(data.error || 'Errore API impersonazione')
       }
 
       await supabase.auth.setSession({
@@ -118,11 +140,11 @@ export default function AdminDashboard() {
         refresh_token: data.refresh_token
       })
 
-      router.push('/dashboard')
+      window.location.href = '/dashboard'
 
     } catch (error: any) {
-      console.error(error)
-      alert('❌ Errore: ' + error.message)
+      console.error('Impersonate error:', error)
+      alert('❌ Errore impersonazione:\n\n' + error.message + '\n\nControlla console browser (F12) per dettagli.')
     }
   }
 
@@ -137,6 +159,28 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
+      {pendingRequests > 0 && (
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 text-white p-2 rounded-full">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-blue-900">
+                {pendingRequests} {pendingRequests === 1 ? 'Nuova richiesta demo' : 'Nuove richieste demo'}
+              </p>
+              <p className="text-sm text-blue-700">Clienti in attesa di approvazione</p>
+            </div>
+          </div>
+          <Link 
+            href="/admin/demo-requests"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
+          >
+            Gestisci Richieste →
+          </Link>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>
@@ -292,3 +336,4 @@ export default function AdminDashboard() {
     </div>
   )
 }
+
