@@ -55,7 +55,7 @@ export default function AdminDemoRequests() {
 
     // Send approval email
     try {
-      const response = await fetch('/api/admin/approve-demo', {
+      await fetch('/api/admin/approve-demo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -64,16 +64,53 @@ export default function AdminDemoRequests() {
           business_type: request.business_type
         })
       })
-
-      if (!response.ok) {
-        console.error('Email send failed')
-      }
     } catch (e) {
       console.error('Email error:', e)
     }
 
     alert('✅ Richiesta approvata!\n\n📧 Email di conferma inviata al cliente.\n\nRicordati di creare l\'istanza manualmente.')
     loadRequests()
+  }
+
+  const handleApproveAndCreate = async (request: DemoRequest) => {
+    if (!confirm(`🚀 APPROVA E CREA ISTANZA\n\nPer: ${request.name}\nEmail: ${request.email}\n\nVerranno create:\n• Account utente\n• Business "${request.name}"\n• Email con credenziali\n\n⚠️ Dovrai aggiungere le features manualmente dopo!\n\nContinuare?`)) {
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Sessione non valida')
+
+      const response = await fetch('/api/admin/auto-create-instance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ requestId: request.id })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Errore durante creazione')
+      }
+
+      const copyToClipboard = `Email: ${data.credentials.email}\nPassword: ${data.credentials.password}`
+      navigator.clipboard.writeText(copyToClipboard)
+
+      alert(`✅ ISTANZA CREATA!\n\nBusiness: ${data.businessName}\n\n📧 CREDENZIALI (copiate negli appunti):\nEmail: ${data.credentials.email}\nPassword: ${data.credentials.password}\nSlug: ${data.credentials.slug}\n\n⚠️ RICORDATI:\n1. Aggiungi FEATURES da "Gestisci"!\n2. Invia TU le credenziali al cliente\n3. Mettiti in copia nell'email`)
+      
+      if (confirm('Vuoi andare ora in "Gestisci" per aggiungere le features?')) {
+        window.location.href = `/admin/instances/${data.businessId}`
+      } else {
+        loadRequests()
+      }
+
+    } catch (error: any) {
+      console.error(error)
+      alert('❌ Errore: ' + error.message)
+    }
   }
 
   const handleReject = async (id: string) => {
@@ -137,7 +174,21 @@ export default function AdminDemoRequests() {
                       )}
                       {request.status === 'approved' && (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-normal">
-                          Approvata
+                          ✅ Approvata
+                        </span>
+                      )}
+                      {request.status === 'approved' && request.message && request.message.includes('CREDENZIALI') && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-normal cursor-pointer" 
+                              onClick={() => {
+                                const lines = request.message.split('\n')
+                                const email = lines.find(l => l.includes('Email:'))
+                                const password = lines.find(l => l.includes('Password:'))
+                                const text = `${email}\n${password}`
+                                navigator.clipboard.writeText(text)
+                                alert('Credenziali copiate negli appunti!')
+                              }}
+                              title="Click per copiare credenziali">
+                          📋 Credenziali
                         </span>
                       )}
                       {request.status === 'rejected' && (
@@ -166,11 +217,19 @@ export default function AdminDemoRequests() {
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        onClick={() => handleApprove(request)}
-                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => handleApproveAndCreate(request)}
+                        className="bg-blue-600 hover:bg-blue-700"
                       >
                         <Check className="w-4 h-4 mr-1" />
-                        Approva
+                        Approva e Crea
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleApprove(request)}
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                      >
+                        Solo Approva
                       </Button>
                       <Button
                         size="sm"
