@@ -175,6 +175,8 @@ export default function AdminDashboard() {
   }
 
   const handleImpersonate = async (businessId: string, businessName: string) => {
+    if (!confirm(`Aprire dashboard di "${businessName}" in nuova scheda?`)) return
+
     try {
       const business = businesses.find(b => b.id === businessId)
       
@@ -212,8 +214,10 @@ export default function AdminDashboard() {
         throw new Error(data.error || 'Errore impersonation')
       }
 
+      // Open in NEW TAB instead of current window
       if (data.redirectUrl) {
-        window.location.href = data.redirectUrl
+        window.open(data.redirectUrl, '_blank')
+        alert('✅ Dashboard cliente aperta in nuova scheda!')
       }
 
     } catch (error: any) {
