@@ -11,7 +11,7 @@ function generatePassword(length = 12) {
 }
 
 function generateSlug(text: string) {
-  return text
+  const base = text
     .toLowerCase()
     .replace(/[àáâãäå]/g, 'a')
     .replace(/[èéêë]/g, 'e')
@@ -20,6 +20,10 @@ function generateSlug(text: string) {
     .replace(/[ùúûü]/g, 'u')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+  
+  // Add random suffix to ensure uniqueness
+  const randomSuffix = Math.random().toString(36).substring(2, 6)
+  return `${base}-${randomSuffix}`
 }
 
 export async function POST(request: NextRequest) {
