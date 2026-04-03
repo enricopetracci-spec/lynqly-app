@@ -76,20 +76,48 @@ export async function POST(request: NextRequest) {
     const password = generatePassword()
     const slug = generateSlug(demoRequest.name)
 
-    // Create user
-    const { data: newUser, error: userError } = await supabaseAdmin.auth.admin.createUser({
-      email: demoRequest.email,
-      password: password,
-      email_confirm: true,
-      user_metadata: {
-        name: demoRequest.name,
-        business_type: demoRequest.business_type
-      }
-    })
+    // Check if user already exists
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+    const existingUser = existingUsers?.users.find(u => u.email === demoRequest.email)
 
-    if (userError) {
-      console.error('User creation error:', userError)
-      return NextResponse.json({ error: 'Failed to create user: ' + userError.message }, { status: 500 })
+    let userId: string
+    let userPassword: string
+
+    if (existingUser) {
+      // User exists, reuse it
+      console.log('✅ User already exists, reusing:', existingUser.id)
+      userId = existingUser.id
+      
+      // Generate new password and update
+      userPassword = password
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        existingUser.id,
+        { password: userPassword }
+      )
+      
+      if (updateError) {
+        console.error('Password update error:', updateError)
+        // Continue anyway, user can reset password
+      }
+    } else {
+      // Create new user
+      const { data: newUser, error: userError } = await supabaseAdmin.auth.admin.createUser({
+        email: demoRequest.email,
+        password: password,
+        email_confirm: true,
+        user_metadata: {
+          name: demoRequest.name,
+          business_type: demoRequest.business_type
+        }
+      })
+
+      if (userError) {
+        console.error('User creation error:', userError)
+        return NextResponse.json({ error: 'Failed to create user: ' + userError.message }, { status: 500 })
+      }
+
+      userId = newUser.user.id
+      userPassword = password
     }
 
     // Create business
@@ -101,14 +129,16 @@ export async function POST(request: NextRequest) {
         business_type: demoRequest.business_type,
         phone: demoRequest.phone,
         email: demoRequest.email,
-        user_id: newUser.user.id
+        user_id: userId
       })
       .select()
       .single()
 
     if (businessError) {
-      // Rollback: delete user
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+      // Rollback only if we created a new user
+      if (!existingUser) {
+        await supabaseAdmin.auth.admin.deleteUser(userId)
+      }
       console.error('Business creation error:', businessError)
       return NextResponse.json({ error: 'Failed to create business: ' + businessError.message }, { status: 500 })
     }
@@ -120,7 +150,7 @@ export async function POST(request: NextRequest) {
         status: 'approved',
         processed_at: new Date().toISOString(),
         processed_by: user.id,
-        message: `CREDENZIALI:\nEmail: ${demoRequest.email}\nPassword: ${password}\nBusiness ID: ${business.id}`
+        message: `CREDENZIALI:\nEmail: ${demoRequest.email}\nPassword: ${userPassword}\nBusiness ID: ${business.id}`
       })
       .eq('id', requestId)
 
@@ -130,7 +160,7 @@ export async function POST(request: NextRequest) {
       businessName: business.name,
       credentials: {
         email: demoRequest.email,
-        password: password,
+        password: userPassword,
         slug: slug
       }
     })
