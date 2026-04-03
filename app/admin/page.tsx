@@ -1,143 +1,132 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Building2, Mail, Trash2, LogIn, AlertCircle, CheckCircle, Clock } from 'lucide-react'
+import { Building2, Users, TrendingUp, Trash2, LogIn, Mail, Clock } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 
 type BusinessStats = {
   id: string
   name: string
+  slug: string
   email: string
+  user_id: string | null
   created_at: string
-  user_id: string
-  last_login?: string
-  status: 'active' | 'inactive' | 'error'
-}
-
-type DashboardStats = {
-  totalInstances: number
-  activeToday: number
-  inactiveWeek: number
-  pendingRequests: number
-  errorInstances: number
+  last_login: string | null
 }
 
 export default function AdminDashboard() {
   const router = useRouter()
   const [businesses, setBusinesses] = useState<BusinessStats[]>([])
-  const [stats, setStats] = useState<DashboardStats>({
-    totalInstances: 0,
-    activeToday: 0,
-    inactiveWeek: 0,
-    pendingRequests: 0,
-    errorInstances: 0
-  })
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [pendingRequests, setPendingRequests] = useState(0)
+  const [stats, setStats] = useState({
+    total: 0,
+    activeToday: 0,
+    inactive: 0
+  })
 
   useEffect(() => {
-    loadDashboard()
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(loadDashboard, 30000)
-    return () => clearInterval(interval)
+    loadStats()
+    loadPendingRequests()
   }, [])
 
-  const loadDashboard = async () => {
-    await Promise.all([
-      loadBusinesses(),
-      loadStats()
-    ])
-    setLoading(false)
-  }
-
-  const loadBusinesses = async () => {
-    const { data } = await supabase
-      .from('businesses')
-      .select('id, name, email, created_at, user_id')
-      .order('created_at', { ascending: false })
-
-    if (data) {
-      // Get last login for each business
-      const businessesWithLogin = await Promise.all(
-        data.map(async (business) => {
-          const { data: loginData } = await supabase
-            .from('login_logs')
-            .select('login_at')
-            .eq('business_id', business.id)
-            .order('login_at', { ascending: false })
-            .limit(1)
-            .single()
-
-          const lastLogin = loginData?.login_at
-          const daysSinceLogin = lastLogin 
-            ? Math.floor((Date.now() - new Date(lastLogin).getTime()) / (1000 * 60 * 60 * 24))
-            : 999
-
-          return {
-            ...business,
-            last_login: lastLogin || null,
-            status: daysSinceLogin === 0 ? 'active' : daysSinceLogin > 7 ? 'inactive' : 'error'
-          }
-        })
-      )
-
-      setBusinesses(businessesWithLogin as BusinessStats[])
-    }
-  }
-
-  const loadStats = async () => {
-    // Total instances
-    const { count: totalInstances } = await supabase
-      .from('businesses')
-      .select('*', { count: 'exact', head: true })
-
-    // Pending requests
-    const { count: pendingRequests } = await supabase
+  const loadPendingRequests = async () => {
+    const { count } = await supabase
       .from('demo_requests')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending')
       .eq('email_verified', true)
 
-    // Active today (logged in last 24h)
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const { data: activeLogins } = await supabase
-      .from('login_logs')
-      .select('business_id')
-      .gte('login_at', yesterday.toISOString())
+    setPendingRequests(count || 0)
+  }
 
-    const activeToday = new Set(activeLogins?.map(l => l.business_id) || []).size
+  const loadStats = async () => {
+    try {
+      // Get all businesses with last login info
+      const { data: businessesData, error } = await supabase
+        .from('businesses')
+        .select(`
+          id,
+          name,
+          slug,
+          email,
+          user_id,
+          created_at
+        `)
+        .order('created_at', { ascending: false })
 
-    // Inactive 7+ days
-    const weekAgo = new Date()
-    weekAgo.setDate(weekAgo.getDate() - 7)
-    const { data: allBusinesses } = await supabase
-      .from('businesses')
-      .select('id')
+      if (error) throw error
 
-    const { data: recentLogins } = await supabase
-      .from('login_logs')
-      .select('business_id')
-      .gte('login_at', weekAgo.toISOString())
+      if (!businessesData) {
+        setBusinesses([])
+        setLoading(false)
+        return
+      }
 
-    const recentBusinessIds = new Set(recentLogins?.map(l => l.business_id) || [])
-    const inactiveWeek = (allBusinesses?.length || 0) - recentBusinessIds.size
+      // Get login logs for all users
+      const userIds = businessesData
+        .map(b => b.user_id)
+        .filter(Boolean) as string[]
 
-    setStats({
-      totalInstances: totalInstances || 0,
-      activeToday,
-      inactiveWeek,
-      pendingRequests: pendingRequests || 0,
-      errorInstances: 0 // TODO: implement error tracking
-    })
+      let loginData: any[] = []
+      if (userIds.length > 0) {
+        const { data: logins } = await supabase
+          .from('login_logs')
+          .select('user_id, logged_in_at')
+          .in('user_id', userIds)
+          .order('logged_in_at', { ascending: false })
+        
+        loginData = logins || []
+      }
+
+      // Map last login to each business
+      const businessesWithLogin = businessesData.map(business => {
+        const userLogins = loginData.filter(l => l.user_id === business.user_id)
+        const lastLogin = userLogins.length > 0 ? userLogins[0].logged_in_at : null
+        
+        return {
+          ...business,
+          last_login: lastLogin
+        }
+      })
+
+      setBusinesses(businessesWithLogin)
+
+      // Calculate stats
+      const now = new Date()
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+      const activeToday = businessesWithLogin.filter(b => {
+        if (!b.last_login) return false
+        return new Date(b.last_login) > oneDayAgo
+      }).length
+
+      const inactive = businessesWithLogin.filter(b => {
+        if (!b.last_login) return false
+        return new Date(b.last_login) < sevenDaysAgo
+      }).length
+
+      setStats({
+        total: businessesWithLogin.length,
+        activeToday,
+        inactive
+      })
+
+    } catch (error) {
+      console.error('Error loading stats:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDelete = async (businessId: string, businessName: string) => {
-    if (!confirm(`⚠️ ATTENZIONE!\n\nStai per eliminare "${businessName}" e TUTTI i suoi dati:\n- Prenotazioni\n- Clienti\n- Servizi\n- Impostazioni\n\nQuesta azione è IRREVERSIBILE!\n\nContinuare?`)) {
+    if (!confirm(`⚠️ ATTENZIONE!\n\nStai per eliminare "${businessName}" e TUTTI i suoi dati:\n• Prenotazioni\n• Clienti\n• Servizi\n• Impostazioni\n\nQuesta azione è IRREVERSIBILE!\n\nContinuare?`)) {
       return
     }
 
@@ -151,16 +140,16 @@ export default function AdminDashboard() {
         .single()
 
       if (!business?.user_id) {
-        throw new Error('Business non trovato')
+        throw new Error('Business senza user_id')
       }
 
       // Delete business (cascade deletes everything)
-      const { error: businessError } = await supabase
+      const { error: deleteError } = await supabase
         .from('businesses')
         .delete()
         .eq('id', businessId)
 
-      if (businessError) throw businessError
+      if (deleteError) throw deleteError
 
       // Delete user from auth
       const { data: { session } } = await supabase.auth.getSession()
@@ -176,31 +165,27 @@ export default function AdminDashboard() {
       }
 
       alert('✅ Istanza eliminata con successo!')
-      loadDashboard()
+      loadStats()
 
     } catch (error: any) {
       console.error('Delete error:', error)
-      alert('❌ Errore durante eliminazione: ' + error.message)
+      alert('❌ Errore: ' + error.message)
     } finally {
       setDeleting(null)
     }
   }
 
-  const handleImpersonate = async (businessId: string) => {
+  const handleImpersonate = async (businessId: string, businessName: string) => {
     try {
-      const { data: business } = await supabase
-        .from('businesses')
-        .select('user_id, name')
-        .eq('id', businessId)
-        .single()
-
+      const business = businesses.find(b => b.id === businessId)
+      
       if (!business) {
         alert('❌ Business non trovato')
         return
       }
 
       if (!business.user_id) {
-        alert('❌ Questo business non ha un user_id associato')
+        alert('❌ Questo business non ha un utente associato')
         return
       }
 
@@ -216,7 +201,10 @@ export default function AdminDashboard() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ userId: business.user_id })
+        body: JSON.stringify({ 
+          businessId: businessId,
+          userId: business.user_id 
+        })
       })
 
       const data = await response.json()
@@ -225,18 +213,9 @@ export default function AdminDashboard() {
         throw new Error(data.error || 'Errore impersonation')
       }
 
-      // Store admin session for return
-      localStorage.setItem('admin_return_token', session.access_token)
-      localStorage.setItem('impersonating_business', business.name)
-
-      // Set new session
-      await supabase.auth.setSession({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token
-      })
-
-      // Redirect to dashboard
-      window.location.href = '/dashboard'
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl
+      }
 
     } catch (error: any) {
       console.error('Impersonate error:', error)
@@ -244,159 +223,178 @@ export default function AdminDashboard() {
     }
   }
 
-  const getStatusBadge = (status: string, lastLogin?: string) => {
+  const getStatusBadge = (lastLogin: string | null) => {
     if (!lastLogin) {
-      return <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Mai loggato</span>
+      return <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">🔴 Mai loggato</span>
     }
 
-    const daysSince = Math.floor((Date.now() - new Date(lastLogin).getTime()) / (1000 * 60 * 60 * 24))
+    const now = new Date()
+    const loginDate = new Date(lastLogin)
+    const daysSince = Math.floor((now.getTime() - loginDate.getTime()) / (1000 * 60 * 60 * 24))
 
     if (daysSince === 0) {
       return <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">🟢 Attivo oggi</span>
-    } else if (daysSince <= 7) {
-      return <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">🟡 {daysSince}g fa</span>
+    } else if (daysSince < 7) {
+      return <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">🟢 Attivo</span>
     } else {
-      return <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">🔴 Inattivo {daysSince}g</span>
+      return <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">🟡 Inattivo {daysSince}g</span>
     }
   }
 
+  const formatLastLogin = (lastLogin: string | null) => {
+    if (!lastLogin) return 'Mai'
+    
+    const date = new Date(lastLogin)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 60) return `${diffMins} min fa`
+    if (diffHours < 24) return `${diffHours}h fa`
+    if (diffDays < 7) return `${diffDays}g fa`
+    
+    return date.toLocaleDateString('it-IT', { 
+      day: 'numeric', 
+      month: 'short',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    })
+  }
+
   if (loading) {
-    return <div className="text-center py-12">Caricamento dashboard...</div>
+    return <div className="text-center py-12">Caricamento...</div>
   }
 
   return (
     <div className="space-y-6">
-      {/* Alert Cards */}
+      {pendingRequests > 0 && (
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 text-white p-2 rounded-full">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-blue-900">
+                {pendingRequests} {pendingRequests === 1 ? 'Nuova richiesta demo' : 'Nuove richieste demo'}
+              </p>
+              <p className="text-sm text-blue-700">Clienti in attesa di approvazione</p>
+            </div>
+          </div>
+          <Link 
+            href="/admin/demo-requests"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
+          >
+            Gestisci Richieste →
+          </Link>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard Admin</h1>
+          <p className="text-gray-600 mt-1">Panoramica di tutte le istanze Lynqly</p>
+        </div>
+        <Link href="/admin/instances/new">
+          <Button className="bg-blue-600 hover:bg-blue-700">
+            <Building2 className="w-4 h-4 mr-2" />
+            Nuova Istanza
+          </Button>
+        </Link>
+      </div>
+
       <div className="grid md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Istanze Totali</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Totale Istanze</CardTitle>
+            <Building2 className="w-4 h-4 text-gray-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{stats.totalInstances}</div>
-            <p className="text-xs text-gray-500 mt-1">Tutte le istanze attive</p>
+            <div className="text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-green-200 bg-green-50/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              Attive Oggi
-            </CardTitle>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Attive Oggi</CardTitle>
+            <TrendingUp className="w-4 h-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-700">{stats.activeToday}</div>
-            <p className="text-xs text-green-600 mt-1">Login nelle ultime 24h</p>
+            <div className="text-2xl font-bold text-green-600">{stats.activeToday}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-yellow-200 bg-yellow-50/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-yellow-700 flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Inattive 7+ giorni
-            </CardTitle>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Inattive 7+ giorni</CardTitle>
+            <Clock className="w-4 h-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-yellow-700">{stats.inactiveWeek}</div>
-            <p className="text-xs text-yellow-600 mt-1">Nessun accesso recente</p>
+            <div className="text-2xl font-bold text-yellow-600">{stats.inactive}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              Richieste Pending
-            </CardTitle>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Richieste Pending</CardTitle>
+            <Mail className="w-4 h-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-700">{stats.pendingRequests}</div>
-            <Link href="/admin/demo-requests" className="text-xs text-blue-600 hover:underline mt-1 inline-block">
-              Gestisci →
-            </Link>
+            <div className="text-2xl font-bold text-blue-600">{pendingRequests}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Instances Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Istanze Business</CardTitle>
-              <p className="text-sm text-gray-500 mt-1">
-                {businesses.length} {businesses.length === 1 ? 'istanza' : 'istanze'}
-              </p>
-            </div>
-            <Link href="/admin/instances/new">
-              <Button>
-                <Building2 className="w-4 h-4 mr-2" />
-                Nuova Istanza
-              </Button>
-            </Link>
-          </div>
+          <CardTitle>Istanze Business</CardTitle>
         </CardHeader>
         <CardContent>
           {businesses.length === 0 ? (
             <div className="text-center py-12">
               <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
               <p className="text-gray-500">Nessuna istanza creata</p>
+              <Link href="/admin/instances/new">
+                <Button className="mt-4 bg-blue-600 hover:bg-blue-700">
+                  Crea Prima Istanza
+                </Button>
+              </Link>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Business</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Proprietario</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Creato il</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Ultimo Accesso</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                    <th className="text-right py-3 px-4 font-medium text-gray-700">Azioni</th>
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Business</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Proprietario</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ultimo Accesso</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Creato</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Azioni</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {businesses.map(business => (
-                    <tr key={business.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4">
+                <tbody className="divide-y divide-gray-200">
+                  {businesses.map((business) => (
+                    <tr key={business.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
                         <div className="font-medium text-gray-900">{business.name}</div>
+                        <div className="text-sm text-gray-500">{business.slug}</div>
                       </td>
-                      <td className="py-3 px-4">
-                        <a href={`mailto:${business.email}`} className="text-blue-600 hover:underline text-sm">
-                          {business.email}
-                        </a>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-gray-600">{business.email}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{formatLastLogin(business.last_login)}</td>
+                      <td className="px-4 py-3">{getStatusBadge(business.last_login)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
                         {new Date(business.created_at).toLocaleDateString('it-IT')}
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
-                        {business.last_login 
-                          ? new Date(business.last_login).toLocaleDateString('it-IT', {
-                              day: 'numeric',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })
-                          : '-'
-                        }
-                      </td>
-                      <td className="py-3 px-4">
-                        {getStatusBadge(business.status, business.last_login || undefined)}
-                      </td>
-                      <td className="py-3 px-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <Link href={`/admin/instances/${business.id}`}>
-                            <Button size="sm" variant="outline">
-                              Gestisci
-                            </Button>
+                            <Button size="sm" variant="ghost">Gestisci</Button>
                           </Link>
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => handleImpersonate(business.id)}
-                            className="text-blue-600 hover:text-blue-700"
+                            variant="ghost"
+                            onClick={() => handleImpersonate(business.id, business.name)}
                           >
                             <LogIn className="w-4 h-4" />
                           </Button>
@@ -407,7 +405,11 @@ export default function AdminDashboard() {
                             disabled={deleting === business.id}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {deleting === business.id ? (
+                              '...'
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </Button>
                         </div>
                       </td>
@@ -422,4 +424,3 @@ export default function AdminDashboard() {
     </div>
   )
 }
-
