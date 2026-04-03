@@ -46,6 +46,7 @@ export default function AdminDashboard() {
   }
 
   const loadStats = async () => {
+    console.log('🔍 loadStats called')
     try {
       // Get all businesses
       const { data: businessesData, error } = await supabase
@@ -53,8 +54,14 @@ export default function AdminDashboard() {
         .select('id, name, slug, email, user_id, created_at')
         .order('created_at', { ascending: false })
 
+      console.log('📊 Businesses query result:', { 
+        count: businessesData?.length, 
+        error: error?.message,
+        data: businessesData 
+      })
+
       if (error) {
-        console.error('Error loading businesses:', error)
+        console.error('❌ Error loading businesses:', error)
         throw error
       }
 
