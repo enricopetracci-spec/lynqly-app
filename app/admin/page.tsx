@@ -47,52 +47,42 @@ export default function AdminDashboard() {
 
   const loadStats = async () => {
     try {
-      // Get all businesses with last login info
+      // Get all businesses
       const { data: businessesData, error } = await supabase
         .from('businesses')
-        .select(`
-          id,
-          name,
-          slug,
-          email,
-          user_id,
-          created_at
-        `)
+        .select('id, name, slug, email, user_id, created_at')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error loading businesses:', error)
+        throw error
+      }
 
-      if (!businessesData) {
+      if (!businessesData || businessesData.length === 0) {
         setBusinesses([])
+        setStats({ total: 0, activeToday: 0, inactive: 0 })
         setLoading(false)
         return
       }
 
-      // Get login logs for all users
-      const userIds = businessesData
-        .map(b => b.user_id)
-        .filter(Boolean) as string[]
+      // Get ALL login logs (not filtered by user_id)
+      const { data: allLogins } = await supabase
+        .from('login_logs')
+        .select('user_id, logged_in_at')
+        .order('logged_in_at', { ascending: false })
 
-      let loginData: any[] = []
-      if (userIds.length > 0) {
-        const { data: logins } = await supabase
-          .from('login_logs')
-          .select('user_id, logged_in_at')
-          .in('user_id', userIds)
-          .order('logged_in_at', { ascending: false })
-        
-        loginData = logins || []
-      }
+      const loginData = allLogins || []
 
       // Map last login to each business
       const businessesWithLogin = businessesData.map(business => {
+        if (!business.user_id) {
+          return { ...business, last_login: null }
+        }
+        
         const userLogins = loginData.filter(l => l.user_id === business.user_id)
         const lastLogin = userLogins.length > 0 ? userLogins[0].logged_in_at : null
         
-        return {
-          ...business,
-          last_login: lastLogin
-        }
+        return { ...business, last_login: lastLogin }
       })
 
       setBusinesses(businessesWithLogin)
@@ -120,6 +110,8 @@ export default function AdminDashboard() {
 
     } catch (error) {
       console.error('Error loading stats:', error)
+      setBusinesses([])
+      setStats({ total: 0, activeToday: 0, inactive: 0 })
     } finally {
       setLoading(false)
     }
