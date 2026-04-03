@@ -43,6 +43,47 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Demo request saved (manual verification):', demoRequest.id)
 
+    // Send admin notification email
+    const resendApiKey = process.env.RESEND_API_KEY
+    if (resendApiKey) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'Lynqly Notifications <onboarding@resend.dev>',
+            to: 'enrico.petracci@gmail.com',
+            subject: '🔔 Nuova Richiesta Demo Lynqly',
+            html: `
+              <!DOCTYPE html>
+              <html>
+              <body style="font-family: Arial, sans-serif; padding: 20px;">
+                <h2 style="color: #2563eb;">🔔 Nuova Richiesta Demo</h2>
+                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <p><strong>Nome:</strong> ${name}</p>
+                  <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+                  <p><strong>Telefono:</strong> <a href="tel:${phone}">${phone}</a></p>
+                  <p><strong>Tipo attività:</strong> ${business_type}</p>
+                  ${message ? `<p><strong>Messaggio:</strong> ${message}</p>` : ''}
+                </div>
+                <a href="https://lynqly-app.vercel.app/admin/demo-requests" 
+                   style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 10px;">
+                   Gestisci Richieste →
+                </a>
+              </body>
+              </html>
+            `
+          })
+        })
+        console.log('✅ Admin notification sent')
+      } catch (emailError) {
+        console.error('⚠️ Admin email failed (non-critical):', emailError)
+      }
+    }
+
     return NextResponse.json({ 
       success: true,
       message: 'Richiesta inviata con successo! Ti contatteremo a breve.'
