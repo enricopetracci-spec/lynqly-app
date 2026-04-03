@@ -1,94 +1,186 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Building2, Users, Calendar, TrendingUp, Trash2, LogIn, Mail } from 'lucide-react'
+import { Building2, Mail, Trash2, LogIn, AlertCircle, CheckCircle, Clock } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 type BusinessStats = {
   id: string
   name: string
-  slug: string
-  business_type: string
+  email: string
   created_at: string
-  owner_email: string
-  total_bookings: number
-  total_customers: number
-  total_quotes: number
-  total_staff: number
-  bookings_last_7d: number
-  bookings_last_30d: number
-  active_features_count: number
+  user_id: string
+  last_login?: string
+  status: 'active' | 'inactive' | 'error'
+}
+
+type DashboardStats = {
+  totalInstances: number
+  activeToday: number
+  inactiveWeek: number
+  pendingRequests: number
+  errorInstances: number
 }
 
 export default function AdminDashboard() {
   const router = useRouter()
   const [businesses, setBusinesses] = useState<BusinessStats[]>([])
+  const [stats, setStats] = useState<DashboardStats>({
+    totalInstances: 0,
+    activeToday: 0,
+    inactiveWeek: 0,
+    pendingRequests: 0,
+    errorInstances: 0
+  })
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
-  const [pendingRequests, setPendingRequests] = useState(0)
 
   useEffect(() => {
-    loadStats()
-    loadPendingRequests()
+    loadDashboard()
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(loadDashboard, 30000)
+    return () => clearInterval(interval)
   }, [])
 
-  const loadPendingRequests = async () => {
-    const { count } = await supabase
+  const loadDashboard = async () => {
+    await Promise.all([
+      loadBusinesses(),
+      loadStats()
+    ])
+    setLoading(false)
+  }
+
+  const loadBusinesses = async () => {
+    const { data } = await supabase
+      .from('businesses')
+      .select('id, name, email, created_at, user_id')
+      .order('created_at', { ascending: false })
+
+    if (data) {
+      // Get last login for each business
+      const businessesWithLogin = await Promise.all(
+        data.map(async (business) => {
+          const { data: loginData } = await supabase
+            .from('login_logs')
+            .select('login_at')
+            .eq('business_id', business.id)
+            .order('login_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          const lastLogin = loginData?.login_at
+          const daysSinceLogin = lastLogin 
+            ? Math.floor((Date.now() - new Date(lastLogin).getTime()) / (1000 * 60 * 60 * 24))
+            : 999
+
+          return {
+            ...business,
+            last_login: lastLogin || null,
+            status: daysSinceLogin === 0 ? 'active' : daysSinceLogin > 7 ? 'inactive' : 'error'
+          }
+        })
+      )
+
+      setBusinesses(businessesWithLogin as BusinessStats[])
+    }
+  }
+
+  const loadStats = async () => {
+    // Total instances
+    const { count: totalInstances } = await supabase
+      .from('businesses')
+      .select('*', { count: 'exact', head: true })
+
+    // Pending requests
+    const { count: pendingRequests } = await supabase
       .from('demo_requests')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending')
       .eq('email_verified', true)
 
-    setPendingRequests(count || 0)
-  }
+    // Active today (logged in last 24h)
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const { data: activeLogins } = await supabase
+      .from('login_logs')
+      .select('business_id')
+      .gte('login_at', yesterday.toISOString())
 
-  const loadStats = async () => {
-    const { data } = await supabase
-      .from('admin_business_stats')
-      .select('*')
+    const activeToday = new Set(activeLogins?.map(l => l.business_id) || []).size
 
-    if (data) {
-      setBusinesses(data)
-    }
-    setLoading(false)
+    // Inactive 7+ days
+    const weekAgo = new Date()
+    weekAgo.setDate(weekAgo.getDate() - 7)
+    const { data: allBusinesses } = await supabase
+      .from('businesses')
+      .select('id')
+
+    const { data: recentLogins } = await supabase
+      .from('login_logs')
+      .select('business_id')
+      .gte('login_at', weekAgo.toISOString())
+
+    const recentBusinessIds = new Set(recentLogins?.map(l => l.business_id) || [])
+    const inactiveWeek = (allBusinesses?.length || 0) - recentBusinessIds.size
+
+    setStats({
+      totalInstances: totalInstances || 0,
+      activeToday,
+      inactiveWeek,
+      pendingRequests: pendingRequests || 0,
+      errorInstances: 0 // TODO: implement error tracking
+    })
   }
 
   const handleDelete = async (businessId: string, businessName: string) => {
-    if (!confirm(`⚠️ ATTENZIONE!\n\nStai per eliminare "${businessName}" e TUTTI i suoi dati:\n\n• Account utente\n• Prenotazioni\n• Clienti\n• Preventivi\n• Staff\n• Tutti i dati correlati\n\nQuesta azione è IRREVERSIBILE!\n\nSei sicuro?`)) {
+    if (!confirm(`⚠️ ATTENZIONE!\n\nStai per eliminare "${businessName}" e TUTTI i suoi dati:\n- Prenotazioni\n- Clienti\n- Servizi\n- Impostazioni\n\nQuesta azione è IRREVERSIBILE!\n\nContinuare?`)) {
       return
     }
 
     setDeleting(businessId)
 
     try {
+      const { data: business } = await supabase
+        .from('businesses')
+        .select('user_id')
+        .eq('id', businessId)
+        .single()
+
+      if (!business?.user_id) {
+        throw new Error('Business non trovato')
+      }
+
+      // Delete business (cascade deletes everything)
+      const { error: businessError } = await supabase
+        .from('businesses')
+        .delete()
+        .eq('id', businessId)
+
+      if (businessError) throw businessError
+
+      // Delete user from auth
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('Sessione non valida')
-
-      const response = await fetch('/api/admin/delete-instance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ businessId })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Errore durante eliminazione')
+      if (session) {
+        await fetch('/api/admin/delete-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ userId: business.user_id })
+        })
       }
 
       alert('✅ Istanza eliminata con successo!')
-      loadStats()
+      loadDashboard()
 
     } catch (error: any) {
-      console.error(error)
-      alert('❌ Errore: ' + error.message)
+      console.error('Delete error:', error)
+      alert('❌ Errore durante eliminazione: ' + error.message)
     } finally {
       setDeleting(null)
     }
@@ -96,178 +188,173 @@ export default function AdminDashboard() {
 
   const handleImpersonate = async (businessId: string) => {
     try {
-      const { data: business, error: businessError } = await supabase
+      const { data: business } = await supabase
         .from('businesses')
         .select('user_id, name')
         .eq('id', businessId)
         .single()
 
-      console.log('Business query:', { business, businessError })
-
-      if (businessError || !business) {
-        throw new Error('Business non trovato in DB: ' + (businessError?.message || 'no data'))
+      if (!business) {
+        alert('❌ Business non trovato')
+        return
       }
 
       if (!business.user_id) {
-        throw new Error('Business senza user_id. Istanza non creata correttamente.')
+        alert('❌ Questo business non ha un user_id associato')
+        return
       }
 
       const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        sessionStorage.setItem('admin_return_token', session.access_token)
-        sessionStorage.setItem('impersonating', business.name)
+      if (!session) {
+        alert('❌ Sessione non valida')
+        return
       }
 
       const response = await fetch('/api/admin/impersonate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ userId: business.user_id })
       })
 
       const data = await response.json()
 
-      console.log('Impersonate API:', data)
-
       if (!response.ok) {
-        throw new Error(data.error || 'Errore API impersonazione')
+        throw new Error(data.error || 'Errore impersonation')
       }
 
+      // Store admin session for return
+      localStorage.setItem('admin_return_token', session.access_token)
+      localStorage.setItem('impersonating_business', business.name)
+
+      // Set new session
       await supabase.auth.setSession({
         access_token: data.access_token,
         refresh_token: data.refresh_token
       })
 
+      // Redirect to dashboard
       window.location.href = '/dashboard'
 
     } catch (error: any) {
       console.error('Impersonate error:', error)
-      alert('❌ Errore impersonazione:\n\n' + error.message + '\n\nControlla console browser (F12) per dettagli.')
+      alert('❌ Errore: ' + error.message)
     }
   }
 
-  const totalBusinesses = businesses.length
-  const totalBookings = businesses.reduce((sum, b) => sum + (b.total_bookings || 0), 0)
-  const totalCustomers = businesses.reduce((sum, b) => sum + (b.total_customers || 0), 0)
-  const bookingsLast7d = businesses.reduce((sum, b) => sum + (b.bookings_last_7d || 0), 0)
+  const getStatusBadge = (status: string, lastLogin?: string) => {
+    if (!lastLogin) {
+      return <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Mai loggato</span>
+    }
+
+    const daysSince = Math.floor((Date.now() - new Date(lastLogin).getTime()) / (1000 * 60 * 60 * 24))
+
+    if (daysSince === 0) {
+      return <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">🟢 Attivo oggi</span>
+    } else if (daysSince <= 7) {
+      return <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">🟡 {daysSince}g fa</span>
+    } else {
+      return <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">🔴 Inattivo {daysSince}g</span>
+    }
+  }
 
   if (loading) {
-    return <div className="text-center py-12">Caricamento statistiche...</div>
+    return <div className="text-center py-12">Caricamento dashboard...</div>
   }
 
   return (
     <div className="space-y-6">
-      {pendingRequests > 0 && (
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 text-white p-2 rounded-full">
-              <Mail className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="font-bold text-blue-900">
-                {pendingRequests} {pendingRequests === 1 ? 'Nuova richiesta demo' : 'Nuove richieste demo'}
-              </p>
-              <p className="text-sm text-blue-700">Clienti in attesa di approvazione</p>
-            </div>
-          </div>
-          <Link 
-            href="/admin/demo-requests"
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
-          >
-            Gestisci Richieste →
-          </Link>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>
-          <p className="text-gray-600 mt-1">Panoramica di tutte le istanze Lynqly</p>
-        </div>
-        <Link 
-          href="/admin/instances/new"
-          className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 transition"
-        >
-          + Nuova Istanza
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Alert Cards */}
+      <div className="grid md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Totale Istanze</CardTitle>
-            <Building2 className="w-5 h-5 text-gray-400" />
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">Istanze Totali</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{totalBusinesses}</div>
-            <p className="text-sm text-gray-500 mt-1">Business attivi</p>
+            <div className="text-3xl font-bold text-gray-900">{stats.totalInstances}</div>
+            <p className="text-xs text-gray-500 mt-1">Tutte le istanze attive</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Prenotazioni Totali</CardTitle>
-            <Calendar className="w-5 h-5 text-gray-400" />
+        <Card className="border-green-200 bg-green-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              Attive Oggi
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{totalBookings}</div>
-            <p className="text-sm text-green-600 mt-1">+{bookingsLast7d} ultimi 7 giorni</p>
+            <div className="text-3xl font-bold text-green-700">{stats.activeToday}</div>
+            <p className="text-xs text-green-600 mt-1">Login nelle ultime 24h</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Clienti Totali</CardTitle>
-            <Users className="w-5 h-5 text-gray-400" />
+        <Card className="border-yellow-200 bg-yellow-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-yellow-700 flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Inattive 7+ giorni
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{totalCustomers}</div>
-            <p className="text-sm text-gray-500 mt-1">Across all instances</p>
+            <div className="text-3xl font-bold text-yellow-700">{stats.inactiveWeek}</div>
+            <p className="text-xs text-yellow-600 mt-1">Nessun accesso recente</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Tasso Crescita</CardTitle>
-            <TrendingUp className="w-5 h-5 text-gray-400" />
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
+              <Mail className="w-4 h-4" />
+              Richieste Pending
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">+24%</div>
-            <p className="text-sm text-gray-500 mt-1">vs mese scorso</p>
+            <div className="text-3xl font-bold text-blue-700">{stats.pendingRequests}</div>
+            <Link href="/admin/demo-requests" className="text-xs text-blue-600 hover:underline mt-1 inline-block">
+              Gestisci →
+            </Link>
           </CardContent>
         </Card>
       </div>
 
+      {/* Instances Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Istanze Business</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Istanze Business</CardTitle>
+              <p className="text-sm text-gray-500 mt-1">
+                {businesses.length} {businesses.length === 1 ? 'istanza' : 'istanze'}
+              </p>
+            </div>
+            <Link href="/admin/instances/new">
+              <Button>
+                <Building2 className="w-4 h-4 mr-2" />
+                Nuova Istanza
+              </Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
           {businesses.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12">
               <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p>Nessuna istanza creata</p>
-              <Link 
-                href="/admin/instances/new"
-                className="text-red-600 hover:text-red-700 mt-2 inline-block"
-              >
-                Crea la prima istanza
-              </Link>
+              <p className="text-gray-500">Nessuna istanza creata</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium text-gray-600">Nome</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-600">Tipo</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-600">Proprietario</th>
-                    <th className="text-center py-3 px-4 font-medium text-gray-600">Prenotazioni</th>
-                    <th className="text-center py-3 px-4 font-medium text-gray-600">Clienti</th>
-                    <th className="text-center py-3 px-4 font-medium text-gray-600">Features</th>
-                    <th className="text-center py-3 px-4 font-medium text-gray-600">Azioni</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Business</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Proprietario</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Creato il</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Ultimo Accesso</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                    <th className="text-right py-3 px-4 font-medium text-gray-700">Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -275,37 +362,41 @@ export default function AdminDashboard() {
                     <tr key={business.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <div className="font-medium text-gray-900">{business.name}</div>
-                        <div className="text-sm text-gray-500">{business.slug}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          {business.business_type || 'Non specificato'}
-                        </span>
+                        <a href={`mailto:${business.email}`} className="text-blue-600 hover:underline text-sm">
+                          {business.email}
+                        </a>
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{business.owner_email}</td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="font-medium">{business.total_bookings || 0}</div>
-                        <div className="text-xs text-green-600">+{business.bookings_last_7d || 0} 7d</div>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {new Date(business.created_at).toLocaleDateString('it-IT')}
                       </td>
-                      <td className="py-3 px-4 text-center font-medium">{business.total_customers || 0}</td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-medium text-gray-900">{business.active_features_count || 0}</span>
-                        <span className="text-xs text-gray-500">/9</span>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {business.last_login 
+                          ? new Date(business.last_login).toLocaleDateString('it-IT', {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
+                          : '-'
+                        }
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <Link
-                            href={`/admin/instances/${business.id}`}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                          >
-                            Gestisci
+                        {getStatusBadge(business.status, business.last_login || undefined)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link href={`/admin/instances/${business.id}`}>
+                            <Button size="sm" variant="outline">
+                              Gestisci
+                            </Button>
                           </Link>
                           <Button
                             size="sm"
-                            variant="ghost"
+                            variant="outline"
                             onClick={() => handleImpersonate(business.id)}
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                            title="Accedi come questo utente"
+                            className="text-blue-600 hover:text-blue-700"
                           >
                             <LogIn className="w-4 h-4" />
                           </Button>
@@ -315,13 +406,8 @@ export default function AdminDashboard() {
                             onClick={() => handleDelete(business.id, business.name)}
                             disabled={deleting === business.id}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            title="Elimina istanza"
                           >
-                            {deleting === business.id ? (
-                              <span className="text-xs">...</span>
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </td>
