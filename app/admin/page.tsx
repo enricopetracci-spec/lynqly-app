@@ -73,10 +73,14 @@ export default function AdminDashboard() {
       }
 
       // Get ALL login logs (not filtered by user_id)
-      const { data: allLogins } = await supabase
+      const { data: allLogins, error: loginsError } = await supabase
         .from('login_logs')
         .select('user_id, logged_in_at')
         .order('logged_in_at', { ascending: false })
+
+      if (loginsError) {
+        console.error('❌ Error loading login logs:', loginsError)
+      }
 
       const loginData = allLogins || []
 
@@ -175,18 +179,13 @@ export default function AdminDashboard() {
   }
 
   const handleImpersonate = async (businessId: string, businessName: string) => {
-    if (!confirm(`Aprire dashboard di "${businessName}" in nuova scheda?`)) return
+    if (!confirm(`Aprire dashboard di "${businessName}" in nuova finestra?`)) return
 
     try {
       const business = businesses.find(b => b.id === businessId)
       
-      if (!business) {
-        alert('❌ Business non trovato')
-        return
-      }
-
-      if (!business.user_id) {
-        alert('❌ Questo business non ha un utente associato')
+      if (!business?.user_id) {
+        alert('❌ Business non ha utente associato')
         return
       }
 
@@ -196,16 +195,14 @@ export default function AdminDashboard() {
         return
       }
 
+      // Get magic link
       const response = await fetch('/api/admin/impersonate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ 
-          businessId: businessId,
-          userId: business.user_id 
-        })
+        body: JSON.stringify({ userId: business.user_id })
       })
 
       const data = await response.json()
@@ -214,10 +211,11 @@ export default function AdminDashboard() {
         throw new Error(data.error || 'Errore impersonation')
       }
 
-      // Open in NEW TAB instead of current window
-      if (data.redirectUrl) {
-        window.open(data.redirectUrl, '_blank')
-        alert('✅ Dashboard cliente aperta in nuova scheda!')
+      if (data.magicLink) {
+        // Open magic link in NEW WINDOW (not tab)
+        // This creates completely separate session
+        window.open(data.magicLink, '_blank', 'noopener,noreferrer')
+        alert('✅ Dashboard cliente aperta in nuova finestra!\n\n💡 La tua sessione admin rimane attiva.')
       }
 
     } catch (error: any) {
