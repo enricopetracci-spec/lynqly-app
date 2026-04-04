@@ -126,18 +126,13 @@ export default function ManageInstancePage() {
   }
 
   const handleOpenDashboard = () => {
-    const loginUrl = 'https://lynqly-app.vercel.app/auth/login'
+    const params = new URLSearchParams({
+      email: business?.email || '',
+      password: credentials?.password || '',
+      name: business?.name || ''
+    })
     
-    const message = credentials
-      ? `📋 ACCESSO CLIENTE:\n\nEmail: ${credentials.email}\nPassword: ${credentials.password}\n\nLink: ${loginUrl}\n\n⚠️ USA FINESTRA INCOGNITO per evitare conflitti sessione!`
-      : `📋 ACCESSO CLIENTE:\n\nEmail: ${business?.email}\nPassword: [Non disponibile - usa reset password]\n\nLink: ${loginUrl}\n\n⚠️ USA FINESTRA INCOGNITO!`
-
-    // Copy to clipboard
-    navigator.clipboard.writeText(message)
-
-    if (confirm(message + '\n\n✅ Credenziali copiate!\n\nVuoi aprire il link login in nuova finestra?')) {
-      window.open(loginUrl, '_blank', 'noopener,noreferrer')
-    }
+    window.open(`/admin/client-access?${params.toString()}`, '_blank', 'noopener,noreferrer')
   }
 
   const handleResetPassword = async () => {
