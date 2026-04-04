@@ -5,118 +5,193 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Building2, Check, Calendar, Users, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Building2, Calendar, Clock, Key, ExternalLink, Trash2, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
-type Feature = {
-  id: string
-  code: string
-  name: string
-  description: string
-}
-
-type BusinessInfo = {
+type BusinessDetail = {
   id: string
   name: string
   slug: string
+  email: string
+  phone: string
   business_type: string
-  owner_email: string
-  total_bookings: number
-  total_customers: number
-  total_quotes: number
-  bookings_last_7d: number
+  user_id: string
+  created_at: string
+}
+
+type Feature = {
+  feature_code: string
+  enabled: boolean
 }
 
 export default function ManageInstancePage() {
   const params = useParams()
   const router = useRouter()
-  const businessId = params.id as string
-
+  const [business, setBusiness] = useState<BusinessDetail | null>(null)
+  const [features, setFeatures] = useState<Feature[]>([])
+  const [loginStats, setLoginStats] = useState({ total: 0, lastLogin: null as string | null })
+  const [credentials, setCredentials] = useState<{ email: string, password: string } | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [business, setBusiness] = useState<BusinessInfo | null>(null)
-  const [allFeatures, setAllFeatures] = useState<Feature[]>([])
-  const [enabledFeatures, setEnabledFeatures] = useState<string[]>([])
 
   useEffect(() => {
-    loadData()
-  }, [businessId])
+    loadBusinessDetails()
+  }, [params.id])
 
-  const loadData = async () => {
-    // Load business info
-    const { data: businessData } = await supabase
-      .from('admin_business_stats')
-      .select('*')
-      .eq('id', businessId)
-      .single()
+  const loadBusinessDetails = async () => {
+    try {
+      // Get business
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', params.id)
+        .single()
 
-    if (businessData) {
+      if (!businessData) {
+        alert('Business non trovato')
+        router.push('/admin')
+        return
+      }
+
       setBusiness(businessData)
+
+      // Get features
+      const { data: allFeatures } = await supabase
+        .from('features')
+        .select('code, name')
+
+      const { data: enabledFeatures } = await supabase
+        .from('business_enabled_features')
+        .select('feature_code')
+        .eq('business_id', params.id)
+
+      const enabledCodes = enabledFeatures?.map(f => f.feature_code) || []
+      const featuresWithStatus = allFeatures?.map(f => ({
+        feature_code: f.code,
+        name: f.name,
+        enabled: enabledCodes.includes(f.code)
+      })) || []
+
+      setFeatures(featuresWithStatus as any)
+
+      // Get login stats
+      if (businessData.user_id) {
+        const { count } = await supabase
+          .from('login_logs')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', businessData.user_id)
+
+        const { data: lastLoginData } = await supabase
+          .from('login_logs')
+          .select('logged_in_at')
+          .eq('user_id', businessData.user_id)
+          .order('logged_in_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        setLoginStats({
+          total: count || 0,
+          lastLogin: lastLoginData?.logged_in_at || null
+        })
+      }
+
+      // Try to get credentials from demo_requests
+      const { data: demoRequest } = await supabase
+        .from('demo_requests')
+        .select('message')
+        .eq('email', businessData.email)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (demoRequest?.message && demoRequest.message.includes('CREDENZIALI')) {
+        const lines = demoRequest.message.split('\n')
+        const emailLine = lines.find(l => l.includes('Email:'))
+        const passwordLine = lines.find(l => l.includes('Password:'))
+        
+        if (emailLine && passwordLine) {
+          const email = emailLine.split('Email:')[1]?.trim()
+          const password = passwordLine.split('Password:')[1]?.trim()
+          if (email && password) {
+            setCredentials({ email, password })
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Error loading business:', error)
+    } finally {
+      setLoading(false)
     }
-
-    // Load all features
-    const { data: featuresData } = await supabase
-      .from('features')
-      .select('*')
-      .order('name')
-
-    if (featuresData) {
-      setAllFeatures(featuresData)
-    }
-
-    // Load enabled features
-    const { data: enabledData } = await supabase
-      .from('business_enabled_features')
-      .select('feature_id')
-      .eq('business_id', businessId)
-      .eq('enabled', true)
-
-    if (enabledData) {
-      setEnabledFeatures(enabledData.map(e => e.feature_id))
-    }
-
-    setLoading(false)
   }
 
-  const toggleFeature = (featureId: string) => {
-    setEnabledFeatures(prev => 
-      prev.includes(featureId)
-        ? prev.filter(id => id !== featureId)
-        : [...prev, featureId]
-    )
+  const handleOpenDashboard = () => {
+    const loginUrl = 'https://lynqly-app.vercel.app/auth/login'
+    
+    const message = credentials
+      ? `📋 ACCESSO CLIENTE:\n\nEmail: ${credentials.email}\nPassword: ${credentials.password}\n\nLink: ${loginUrl}\n\n⚠️ USA FINESTRA INCOGNITO per evitare conflitti sessione!`
+      : `📋 ACCESSO CLIENTE:\n\nEmail: ${business?.email}\nPassword: [Non disponibile - usa reset password]\n\nLink: ${loginUrl}\n\n⚠️ USA FINESTRA INCOGNITO!`
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(message)
+
+    if (confirm(message + '\n\n✅ Credenziali copiate!\n\nVuoi aprire il link login in nuova finestra?')) {
+      window.open(loginUrl, '_blank', 'noopener,noreferrer')
+    }
   }
 
-  const handleSave = async () => {
-    setSaving(true)
+  const handleResetPassword = async () => {
+    if (!business?.email) return
+    
+    if (!confirm(`Reset password per ${business.email}?\n\nVerrà inviata email di reset.`)) return
 
     try {
-      // Delete all existing
-      await supabase
-        .from('business_enabled_features')
-        .delete()
-        .eq('business_id', businessId)
-
-      // Insert new selection
-      const toInsert = enabledFeatures.map(featureId => ({
-        business_id: businessId,
-        feature_id: featureId,
-        enabled: true
-      }))
-
-      const { error } = await supabase
-        .from('business_enabled_features')
-        .insert(toInsert)
+      const { error } = await supabase.auth.resetPasswordForEmail(business.email, {
+        redirectTo: 'https://lynqly-app.vercel.app/auth/reset-password'
+      })
 
       if (error) throw error
-
-      alert('✅ Features aggiornate con successo!')
-      router.push('/admin')
-
+      alert('✅ Email di reset inviata!')
     } catch (error: any) {
-      console.error(error)
       alert('❌ Errore: ' + error.message)
-    } finally {
-      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!business) return
+
+    if (!confirm(`⚠️ ATTENZIONE!\n\nStai per eliminare "${business.name}" e TUTTI i suoi dati.\n\nQuesta azione è IRREVERSIBILE!\n\nContinuare?`)) {
+      return
+    }
+
+    try {
+      // Delete business (cascade deletes everything)
+      const { error: deleteError } = await supabase
+        .from('businesses')
+        .delete()
+        .eq('id', business.id)
+
+      if (deleteError) throw deleteError
+
+      // Delete user from auth
+      if (business.user_id) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          await fetch('/api/admin/delete-user', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ userId: business.user_id })
+          })
+        }
+      }
+
+      alert('✅ Istanza eliminata!')
+      router.push('/admin')
+    } catch (error: any) {
+      alert('❌ Errore: ' + error.message)
     }
   }
 
@@ -128,123 +203,219 @@ export default function ManageInstancePage() {
     return <div className="text-center py-12">Business non trovato</div>
   }
 
-  const isRequired = (code: string) => code === 'dashboard' || code === 'settings'
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('it-IT', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getStatusBadge = () => {
+    if (!loginStats.lastLogin) {
+      return <span className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full">🔴 Mai loggato</span>
+    }
+
+    const daysSince = Math.floor((Date.now() - new Date(loginStats.lastLogin).getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysSince === 0) {
+      return <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full">🟢 Attivo oggi</span>
+    } else if (daysSince < 7) {
+      return <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full">🟢 Attivo</span>
+    } else {
+      return <span className="text-xs bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full">🟡 Inattivo {daysSince}g</span>
+    }
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* HEADER */}
+    <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/admin">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Torna alla Dashboard
+            Torna alla lista
           </Button>
         </Link>
       </div>
 
-      {/* BUSINESS INFO */}
-      <Card>
+      {/* HEADER */}
+      <Card className="border-2 border-blue-200 bg-blue-50/50">
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-6 h-6" />
-                {business.name}
-              </CardTitle>
-              <div className="text-sm text-gray-500 mt-1">
-                {business.business_type} • {business.owner_email}
+              <CardTitle className="text-2xl">{business.name}</CardTitle>
+              <p className="text-sm text-gray-600 mt-1">{business.slug}</p>
+              <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                <span className="flex items-center gap-1">
+                  <Mail className="w-4 h-4" />
+                  {business.email}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Phone className="w-4 h-4" />
+                  {business.phone}
+                </span>
               </div>
             </div>
-            <span className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded">
-              {business.slug}
-            </span>
+            {getStatusBadge()}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <Calendar className="w-5 h-5 text-blue-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-gray-900">{business.total_bookings || 0}</div>
-              <div className="text-sm text-gray-600">Prenotazioni</div>
-              <div className="text-xs text-green-600 mt-1">+{business.bookings_last_7d || 0} 7d</div>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <Users className="w-5 h-5 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-gray-900">{business.total_customers || 0}</div>
-              <div className="text-sm text-gray-600">Clienti</div>
-            </div>
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-purple-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-gray-900">{business.total_quotes || 0}</div>
-              <div className="text-sm text-gray-600">Preventivi</div>
-            </div>
-          </div>
-        </CardContent>
       </Card>
 
-      {/* FEATURES MANAGEMENT */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* DATI BUSINESS */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Informazioni business</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Nome:</span>
+              <span className="font-medium">{business.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Slug:</span>
+              <span className="font-medium font-mono text-sm">{business.slug}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Tipo attività:</span>
+              <span className="font-medium">{business.business_type}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">User ID:</span>
+              <span className="font-medium font-mono text-xs">{business.user_id}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* STATISTICHE */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Statistiche utilizzo</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Creato il:</span>
+              <span className="font-medium">{formatDate(business.created_at)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Ultimo login:</span>
+              <span className="font-medium">
+                {loginStats.lastLogin ? formatDate(loginStats.lastLogin) : 'Mai'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Totale login:</span>
+              <span className="font-medium">{loginStats.total}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* CREDENZIALI */}
+      {credentials && (
+        <Card className="border-2 border-purple-200 bg-purple-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              Credenziali accesso
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-white p-4 rounded-lg border space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Email:</span>
+                <span className="font-medium">{credentials.email}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Password:</span>
+                <code className="bg-gray-100 px-3 py-1 rounded font-mono text-sm">{credentials.password}</code>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              💡 Credenziali salvate al momento della creazione istanza
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* FEATURES */}
       <Card>
         <CardHeader>
-          <CardTitle>Gestione Funzionalità</CardTitle>
-          <p className="text-sm text-gray-600 mt-1">
-            Seleziona quali funzionalità saranno disponibili per questo business
-          </p>
+          <CardTitle>Features abilitate</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {allFeatures.map(feature => {
-              const isEnabled = enabledFeatures.includes(feature.id)
-              const required = isRequired(feature.code)
-              
-              return (
-                <div
-                  key={feature.id}
-                  onClick={() => !required && toggleFeature(feature.id)}
-                  className={`
-                    border rounded-lg p-4 cursor-pointer transition
-                    ${isEnabled ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200 hover:border-gray-300'}
-                    ${required ? 'opacity-50 cursor-not-allowed' : ''}
-                  `}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`
-                      w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5
-                      ${isEnabled ? 'bg-red-600 border-red-600' : 'border-gray-300'}
-                    `}>
-                      {isEnabled && <Check className="w-3 h-3 text-white" />}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{feature.name}</div>
-                      <div className="text-sm text-gray-500 mt-0.5">{feature.description}</div>
-                      {required && (
-                        <div className="text-xs text-gray-400 mt-1">Obbligatorio</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {features.map(feature => (
+              <div
+                key={feature.feature_code}
+                className={`p-3 rounded-lg border ${
+                  feature.enabled
+                    ? 'bg-green-50 border-green-200 text-green-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-400'
+                }`}
+              >
+                <span className="text-sm font-medium">
+                  {feature.enabled ? '✅' : '❌'} {(feature as any).name || feature.feature_code}
+                </span>
+              </div>
+            ))}
           </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-gray-700">
-            ℹ️ <strong>{enabledFeatures.length} features</strong> attualmente selezionate. 
-            Dashboard e Impostazioni sono obbligatorie.
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button 
-              onClick={handleSave} 
-              disabled={saving}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {saving ? 'Salvataggio...' : 'Salva Modifiche'}
-            </Button>
-            <Link href="/admin">
-              <Button variant="outline">Annulla</Button>
+          <div className="mt-4">
+            <Link href={`/admin/instances/${business.id}/features`}>
+              <Button variant="outline" size="sm">
+                ⚙️ Modifica features
+              </Button>
             </Link>
           </div>
         </CardContent>
       </Card>
+
+      {/* AZIONI */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card className="border-2 border-blue-200">
+          <CardHeader>
+            <CardTitle>Azioni gestione</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button 
+              onClick={handleOpenDashboard}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Apri dashboard cliente
+            </Button>
+            <Button 
+              onClick={handleResetPassword}
+              variant="outline"
+              className="w-full"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Reset password
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-red-200">
+          <CardHeader>
+            <CardTitle className="text-red-600">Azioni pericolose</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={handleDelete}
+              variant="destructive"
+              className="w-full"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Elimina istanza completa
+            </Button>
+            <p className="text-xs text-gray-600 mt-2">
+              ⚠️ Elimina business, dati e utente. Azione irreversibile!
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
