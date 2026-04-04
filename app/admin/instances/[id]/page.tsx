@@ -106,8 +106,8 @@ export default function ManageInstancePage() {
 
       if (demoRequest?.message && demoRequest.message.includes('CREDENZIALI')) {
         const lines = demoRequest.message.split('\n')
-        const emailLine = lines.find(l => l.includes('Email:'))
-        const passwordLine = lines.find(l => l.includes('Password:'))
+        const emailLine = lines.find((l: string) => l.includes('Email:'))
+        const passwordLine = lines.find((l: string) => l.includes('Password:'))
         
         if (emailLine && passwordLine) {
           const email = emailLine.split('Email:')[1]?.trim()
