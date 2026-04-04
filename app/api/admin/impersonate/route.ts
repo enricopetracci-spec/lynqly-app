@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       type: 'magiclink',
       email: targetUser.user.email,
       options: {
-        redirectTo: `${supabaseUrl.replace('.supabase.co', '')}/dashboard`
+        redirectTo: 'https://lynqly-app.vercel.app/dashboard'
       }
     })
 
