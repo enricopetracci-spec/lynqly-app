@@ -14,8 +14,6 @@ export async function POST(request: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    const { userId } = await request.json()
-
     // Verify admin
     const authHeader = request.headers.get('authorization')
     if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,17 +30,37 @@ export async function POST(request: NextRequest) {
 
     if (!adminUser) return NextResponse.json({ error: 'Not admin' }, { status: 403 })
 
-    // Generate session for target user
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    const { userId } = await request.json()
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId required' }, { status: 400 })
+    }
+
+    // Get user email
+    const { data: targetUser } = await supabaseAdmin.auth.admin.getUserById(userId)
+    
+    if (!targetUser?.user?.email) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Generate magic link (one-time login link)
+    const { data: magicLinkData, error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
-      email: (await supabaseAdmin.auth.admin.getUserById(userId)).data.user!.email!
+      email: targetUser.user.email,
+      options: {
+        redirectTo: `${supabaseUrl.replace('.supabase.co', '')}/dashboard`
+      }
     })
 
-    if (error) throw error
+    if (magicLinkError || !magicLinkData) {
+      console.error('Magic link error:', magicLinkError)
+      return NextResponse.json({ error: 'Failed to generate magic link' }, { status: 500 })
+    }
 
-    return NextResponse.json({ 
-      access_token: data.properties.action_link.split('#')[1].split('&')[0].split('=')[1],
-      refresh_token: 'impersonation'
+    // Return magic link URL
+    return NextResponse.json({
+      success: true,
+      magicLink: magicLinkData.properties.action_link
     })
 
   } catch (error: any) {
