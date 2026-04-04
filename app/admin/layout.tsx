@@ -94,10 +94,6 @@ function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
               })}
             </nav>
             <div className="p-4 border-t">
-              <Link href="/dashboard" className="flex items-center gap-3 text-gray-700 w-full px-4 py-3 hover:bg-gray-50 rounded-lg mb-2">
-                <LayoutDashboard size={20} />
-                <span>Dashboard Utente</span>
-              </Link>
               <button onClick={handleLogout} className="flex items-center gap-3 text-gray-700 w-full px-4 py-3 hover:bg-gray-50 rounded-lg">
                 <LogOut size={20} />
                 <span>Esci</span>
@@ -130,10 +126,6 @@ function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="p-4 border-t">
-          <Link href="/dashboard" className="flex items-center gap-3 text-gray-700 w-full px-4 py-3 hover:bg-gray-50 rounded-lg mb-2">
-            <LayoutDashboard size={20} />
-            <span>Dashboard Utente</span>
-          </Link>
           <button onClick={handleLogout} className="flex items-center gap-3 text-gray-700 w-full px-4 py-3 hover:bg-gray-50 rounded-lg">
             <LogOut size={20} />
             <span>Esci</span>
