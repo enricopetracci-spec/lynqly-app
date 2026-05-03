@@ -27,7 +27,7 @@ function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/admin/login')
+    router.push('/admin/login') // FIXED: era '/admin/login' corretto
   }
 
   const nav = [
@@ -44,6 +44,8 @@ function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAdmin) {
+    // FIXED: Redirect to /admin/login instead of /auth/login
+    router.push('/admin/login')
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
