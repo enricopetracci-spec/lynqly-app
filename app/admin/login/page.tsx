@@ -3,11 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Shield, Mail, Lock } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -16,13 +14,13 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
     try {
-      // 1. Login normale
+      // Login with Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -30,100 +28,93 @@ export default function AdminLoginPage() {
 
       if (authError) throw authError
 
-      // 2. Verifica sia super admin
-      const { data: adminUser } = await supabase
+      if (!authData.user) {
+        throw new Error('Login fallito')
+      }
+
+      // Check if user is admin
+      const { data: adminCheck, error: adminError } = await supabase
         .from('admin_users')
-        .select('id')
+        .select('user_id')
         .eq('user_id', authData.user.id)
         .single()
 
-      if (!adminUser) {
-        // Non è admin - logout e errore
+      if (adminError || !adminCheck) {
+        // Not an admin - logout and show error
         await supabase.auth.signOut()
-        throw new Error('Non hai i permessi di Super Admin')
+        throw new Error('Accesso negato: non sei un amministratore')
       }
 
-      // 3. Successo - vai ad admin
+      // Success - redirect to admin dashboard
       router.push('/admin')
+      router.refresh()
 
     } catch (error: any) {
-      setError(error.message)
+      console.error('Admin login error:', error)
+      setError(error.message || 'Errore durante il login')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-100 p-4">
-      <Card className="w-full max-w-md border-red-200">
-        <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-red-600">
-            🔐 Super Admin
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="bg-red-600 text-white">
+          <CardTitle className="text-2xl text-center">
+            🔐 Admin Login
           </CardTitle>
-          <p className="text-sm text-gray-600 mt-2">
-            Accesso riservato agli amministratori
+          <p className="text-red-100 text-sm text-center mt-2">
+            Area riservata amministratori
           </p>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="pt-6">
+          <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-red-800 text-sm">
+                {error}
+              </div>
+            )}
+
             <div>
-              <Label htmlFor="email" className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                Email Admin
-              </Label>
+              <label className="block text-sm font-medium mb-2">Email Admin</label>
               <Input
-                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@lynqly.app"
                 required
-                className="mt-1"
+                disabled={loading}
               />
             </div>
 
             <div>
-              <Label htmlFor="password" className="flex items-center gap-2">
-                <Lock className="w-4 h-4" />
-                Password
-              </Label>
+              <label className="block text-sm font-medium mb-2">Password</label>
               <Input
-                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="mt-1"
+                disabled={loading}
               />
             </div>
 
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
-                ⚠️ {error}
-              </div>
-            )}
-
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={loading}
               className="w-full bg-red-600 hover:bg-red-700"
             >
-              {loading ? 'Verifica in corso...' : 'Accedi al Pannello Admin'}
+              {loading ? 'Accesso in corso...' : 'Accedi come Admin'}
             </Button>
-
-            <div className="text-center pt-4 border-t">
-              <a 
-                href="/auth/login" 
-                className="text-sm text-gray-600 hover:text-gray-800"
-              >
-                ← Login Clienti
-              </a>
-            </div>
           </form>
+
+          <div className="mt-6 text-center text-sm text-gray-600">
+            <p>Sei un cliente?</p>
+            <a href="/auth/login" className="text-blue-600 hover:text-blue-700 font-medium">
+              Vai al login clienti →
+            </a>
+          </div>
         </CardContent>
       </Card>
     </div>
